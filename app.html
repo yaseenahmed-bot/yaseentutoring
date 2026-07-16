@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revision Plan — Yaseen Tutoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#1c2230; --muted:#5b6577; --line:#e6e9ef;
+  --teal:#0f9d8f; --teal-ink:#0a6f66; --teal-soft:#e5f5f2;
+  --indigo:#4f46e5; --indigo-soft:#ecebfb;
+  --amber:#d98a00; --amber-soft:#fbf1dc;
+  --done:#0f9d8f; --shadow:0 1px 2px rgba(20,30,50,.05),0 8px 24px rgba(20,30,50,.05);
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 18px 96px}
+h1,h2,h3{font-family:"Space Grotesk",sans-serif;margin:0}
+q{quotes:"\201C" "\201D"}
+a{color:var(--teal-ink)}
+button{font-family:inherit}
+
+/* ---- header ---- */
+header.top{padding:34px 0 18px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-ink);font-weight:600}
+header.top h1{font-size:clamp(28px,5vw,40px);font-weight:700;letter-spacing:-.02em;margin:6px 0 4px}
+header.top p.sub{color:var(--muted);margin:0;max-width:64ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted)}
+
+/* ---- exam / countdown ---- */
+.exambar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
+@media(max-width:720px){.exambar{grid-template-columns:1fr}}
+.examcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+.examcard .lbl{font-family:"Space Grotesk";font-weight:600;font-size:14px}
+.examcard .lbl .code{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);font-weight:600;display:block;margin-top:2px}
+.examcard .cd{font-family:"IBM Plex Mono";font-size:26px;font-weight:600;margin-top:6px;letter-spacing:-.01em}
+.examcard .cd small{font-size:13px;color:var(--muted);font-weight:500}
+.examcard input[type=date]{font-family:"IBM Plex Mono";font-size:12px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;color:var(--ink);margin-top:8px;background:#fbfcfe}
+.p1{border-top:3px solid var(--teal)} .p2{border-top:3px solid var(--indigo)} .p3{border-top:3px solid var(--amber)}
+
+/* ---- sticky progress ---- */
+.sticky{position:sticky;top:0;z-index:30;background:rgba(246,247,249,.86);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:8px}
+.sticky .inner{max-width:960px;margin:0 auto;padding:0 18px;display:flex;align-items:center;gap:14px}
+.sticky .bar{flex:1;height:9px;background:var(--line);border-radius:999px;overflow:hidden}
+.sticky .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--indigo));transition:width .4s ease}
+.sticky .pct{font-family:"IBM Plex Mono";font-weight:600;font-size:13px;min-width:132px;text-align:right;color:var(--muted)}
+
+/* ---- links bar ---- */
+.links{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px}
+.links a{font-size:13px;font-weight:600;text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--ink);box-shadow:var(--shadow)}
+.links a:hover{border-color:var(--teal)}
+.links a span{color:var(--teal-ink)}
+.howto{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--indigo);border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 18px;margin-top:18px}
+.howto h2{font-family:"Space Grotesk";font-size:15px;font-weight:600;margin:0 0 6px}
+.howto ol{margin:0;padding-left:18px;font-size:13.5px;color:var(--muted);line-height:1.6}
+.howto ol li b{color:var(--ink)}
+.howto .pk{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:5px;background:var(--indigo-soft);color:var(--indigo)}
+.howto .y1k{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:5px;background:var(--amber-soft);color:#8a5a00}
+
+/* ---- phase ---- */
+.phase{margin-top:30px}
+.phase>h2{font-size:13px;font-family:"IBM Plex Mono";letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:10px}
+.phase>h2::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* ---- topic group ---- */
+.topic{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-top:14px;overflow:hidden}
+.topic>summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;align-items:center;gap:12px}
+.topic>summary::-webkit-details-marker{display:none}
+.topic>summary .tnum{font-family:"IBM Plex Mono";font-weight:600;font-size:13px;color:#fff;background:var(--teal);border-radius:8px;padding:4px 8px;min-width:42px;text-align:center}
+.topic>summary .tnum.y1{background:var(--amber)}
+.topic>summary h3{font-size:18px;font-weight:600;letter-spacing:-.01em;flex:1}
+.ychip{font-family:"IBM Plex Mono";font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;letter-spacing:.08em;white-space:nowrap}
+.ychip.y1{background:var(--amber-soft);color:#8a5a00}
+.ychip.y2{background:var(--teal-soft);color:var(--teal-ink)}
+.topic>summary .tprog{font-family:"IBM Plex Mono";font-size:12px;color:var(--muted);font-weight:600}
+.topic>summary .caret{transition:transform .2s;color:var(--muted)}
+.topic[open]>summary .caret{transform:rotate(90deg)}
+.topic .tbar{height:4px;background:var(--line)}
+.topic .tbar i{display:block;height:100%;width:0;background:var(--teal);transition:width .4s}
+.topic.y1 .tbar i{background:var(--amber)}
+.topic .body{padding:4px 18px 14px}
+
+/* ---- section ---- */
+.sec{padding:14px 0;border-top:1px solid var(--line)}
+.sec:first-child{border-top:none}
+.sec .shead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sec .shead .sspec{font-family:"IBM Plex Mono";font-size:12px;font-weight:600;color:var(--indigo);background:var(--indigo-soft);border-radius:6px;padding:2px 7px}
+.sec .shead h4{font-family:"Space Grotesk";font-size:15px;font-weight:600;margin:0}
+.sec .shead a.pmt{font-size:12px;font-weight:600;text-decoration:none;color:var(--teal-ink);margin-left:auto}
+.sec .note{font-size:12.5px;color:var(--muted);background:var(--amber-soft);border-left:3px solid var(--amber);padding:7px 10px;border-radius:0 8px 8px 0;margin:2px 0 10px}
+.sec .note b{color:#8a5a00}
+
+/* ---- task ---- */
+ul.tasks{list-style:none;margin:0;padding:0}
+li.task{display:flex;gap:11px;padding:8px 0;align-items:flex-start}
+li.task+li.task{border-top:1px dashed var(--line)}
+li.task input[type=checkbox]{margin:2px 0 0;width:19px;height:19px;flex:none;accent-color:var(--done);cursor:pointer}
+li.task label{cursor:pointer;flex:1;font-size:14.5px}
+li.task.done label .t{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.badges{display:inline-flex;gap:6px;flex-wrap:wrap;margin-right:8px;vertical-align:middle}
+.b{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:5px;white-space:nowrap}
+.b-spec{background:var(--indigo-soft);color:var(--indigo)}
+.b-rp{background:var(--teal-soft);color:var(--teal-ink)}
+.b-ms{background:#eef1f6;color:#5b6577}
+.b-kind{background:#f2f4f8;color:#7a8496;text-transform:uppercase;letter-spacing:.06em}
+.k-paper{background:var(--amber-soft);color:#8a5a00}
+.k-review{background:var(--teal-soft);color:var(--teal-ink)}
+.k-practise{background:var(--indigo-soft);color:var(--indigo)}
+li.task label .t b{font-weight:600;color:var(--ink)}
+li.task label .t q{font-style:normal;color:var(--indigo)}
+
+/* ---- this week / whole plan ---- */
+.views{display:flex;gap:4px;background:var(--line);padding:3px;border-radius:999px;flex:none}
+.vbtn{border:0;background:transparent;font:600 12px/1 Inter,sans-serif;color:var(--muted);padding:6px 11px;border-radius:999px;cursor:pointer}
+.vbtn.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.vbtn:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+.wcount{font-family:"IBM Plex Mono";font-size:12px;font-weight:600;color:var(--teal);white-space:nowrap}
+.weeknone{max-width:960px;margin:22px auto;padding:0 18px;color:var(--muted);font-size:14px}
+/* Whole plan: mark what is due now, or "work ahead" is a wall of 621 tasks. */
+li.task.now{background:rgba(13,148,136,.06);box-shadow:inset 3px 0 0 var(--teal)}
+@media(max-width:600px){.views{order:-1}.wcount{display:none}}
+/* ---- footer controls ---- */
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.controls .count{font-family:"IBM Plex Mono";font-size:13px;color:var(--muted);font-weight:600}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}
+.btn:hover{border-color:var(--teal)}
+.btn.danger:hover{border-color:#d14343;color:#d14343}
+.foot{margin-top:22px;font-size:12px;color:var(--muted);line-height:1.6}
+.foot code{font-family:"IBM Plex Mono";background:#eef1f6;padding:1px 5px;border-radius:5px}
+
+/* ---- real exam date (platform mode: the date comes from the board timetable) ---- */
+.examcard .realdate{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--muted);font-weight:600;margin-top:6px}
+
+/* ---- task locked pending the upload feature (Week 7) ---- */
+li.task.locked{opacity:.62}
+li.task.locked input[type=checkbox]{cursor:not-allowed}
+li.task.locked label{cursor:default}
+li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;background:var(--amber-soft);border-radius:6px;padding:3px 8px;margin-top:5px;width:fit-content}
+
+/* ---- platform chrome (injected pages only; unused in the standalone build) ---- */
+.who{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);font-weight:600}
+.who .btn{padding:5px 10px;font-size:12px}
+.subjects{display:flex;gap:6px;flex:none}
+.subjects:empty{display:none}
+.subj{font-family:"Space Grotesk",sans-serif;font-size:12.5px;font-weight:600;text-decoration:none;color:var(--muted);
+      background:var(--card);border:1px solid var(--line);border-radius:8px;padding:5px 11px;white-space:nowrap}
+.subj:hover{border-color:var(--teal);color:var(--teal-ink)}
+.subj.on{background:var(--teal-soft);border-color:var(--teal);color:var(--teal-ink)}
+@media(max-width:600px){.subj{padding:5px 8px;font-size:11.5px}.sticky .pct{min-width:0;font-size:12px}}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:4px}
+
+/* ---- data-drop prompt (renderer only) ---- */
+/* ---- boot overlay: covers the shell until the plan is ready, so nothing
+       half-built is ever on screen. Defaults to a neutral LOADING state —
+       the drag-drop message is opt-in (.dropmode), because on the platform
+       there is a real wait (session -> assignment -> plan -> progress) and
+       "Drop a plan .json to preview" would flash during every single load. ---- */
+#drop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;background:var(--bg)}
+#drop .box{max-width:520px;margin:0 18px;background:var(--card);border:2px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:34px 30px;text-align:center}
+#drop.dropmode .box{border-style:dashed}
+#drop.over .box{border-color:var(--teal);background:var(--teal-soft)}
+#drop .spin{width:22px;height:22px;margin:14px auto 2px;border:2.5px solid var(--line);border-top-color:var(--teal);border-radius:50%;animation:sp .7s linear infinite}
+#drop.dropmode .spin{display:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){#drop .spin{animation:none;border-top-color:var(--line)}}
+#drop .kick{font-family:"IBM Plex Mono";font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-ink);font-weight:600}
+#drop h1{font-family:"Space Grotesk";font-size:22px;margin:8px 0 6px}
+#drop p{color:var(--muted);font-size:14px;margin:6px 0 0}
+#drop code{font-family:"IBM Plex Mono";background:#eef1f6;padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="sticky"><div class="inner">
+  <div class="views" id="views" hidden>
+    <button class="vbtn on" id="vweek" type="button">This week</button>
+    <button class="vbtn" id="vplan" type="button">Whole plan</button>
+  </div>
+  <span class="wcount" id="weekcount" hidden></span>
+  <div class="bar"><i id="mbar"></i></div>
+  <div class="pct" id="mpct">0 / 0 · 0%</div>
+</div></div>
+
+<div class="wrap">
+<header class="top" id="top"></header>
+<section class="howto" id="howto" hidden><h2>How to use this plan</h2><ol></ol></section>
+<p class="weeknone" id="weeknone" hidden>Nothing is scheduled for you this week. Use <b>Whole plan</b> if you want to get ahead.</p>
+<main id="app"></main>
+<div class="controls">
+  <span class="count" id="footcount"></span>
+  <button class="btn" id="expandAll">Expand all</button>
+  <button class="btn" id="collapseAll">Collapse all</button>
+  <button class="btn danger" id="reset">Reset progress</button>
+</div>
+<p class="foot" id="foot"></p>
+</div>
+
+<div id="drop"><div class="box">
+  <div class="kick">Yaseen Tutoring</div>
+  <div class="spin" aria-hidden="true"></div>
+  <h1 id="dropTitle">Loading your plan…</h1>
+  <p id="dropmsg">One moment.</p>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+/* ============================================================================
+   platform.js — the Supabase adapter.
+
+   This is the ONLY file that knows a database exists. renderer.html does not
+   import it, does not name it, and works without it (build-standards §3.6/§9:
+   one renderer, never a fork). build-app.js injects this ahead of the renderer's
+   engine — exactly the move bundle.js already makes with __PLAN_DATA__.
+
+   What it does, in order:
+     1. Requires a session. No session -> back to the login page.
+     2. Requires an ACTIVE profile row. Signed up but not yet approved by the
+        tutor -> a page that says so, in words, rather than a blank screen.
+     3. Resolves the student's assignment(s).
+     4. Fetches the plan blob and the real exam dates.
+     5. Hands the renderer __PLAN_DATA__ + __PLAN_STORE__ and gets out of the way.
+
+   Config comes from window.__SUPA__ (config.js). The anon key is public by
+   design — RLS is what protects the data (rls.sql). The service_role key is
+   NOT here and must never be: it bypasses RLS entirely.
+============================================================================ */
+(() => {
+  const $ = (h) => { document.body.innerHTML = h; };
+
+  // --- config guard. Without this, an unfilled or mistyped config.js throws
+  // inside createClient and the student gets a blank page whose only
+  // explanation is in the browser console. Fail in words instead.
+  const CFG = window.__SUPA__ || {};
+  const configured = /^https:\/\/.+\.supabase\.co\/?$/.test(String(CFG.url || "")) &&
+                     String(CFG.anonKey || "").length > 20;
+  if (!configured) {
+    $(`<div class="wrap"><header class="top" style="padding-top:60px">
+         <div class="kicker">Yaseen Tutoring</div>
+         <h1>This site isn't finished setting up</h1>
+         <p class="sub">The app hasn't been given its database details yet, so there's nothing to load.
+         If you're a student: nothing is wrong with your account — try again later.
+         <br><br><b>Yaseen:</b> <code>config.js</code> still has the placeholder text in it.
+         Paste your project URL and anon key into that file and redeploy.</p>
+       </header></div>`);
+    window.__PLAN_BOOT__ = Promise.reject(new Error("config.js not filled in"));
+    return;
+  }
+
+  const sb = window.supabase.createClient(CFG.url, CFG.anonKey);
+
+  /* --- which Monday is "this week"? -----------------------------------------
+     paced_tasks.week_start is a DATE written by Postgres from monday_of(), and
+     it is compared here against the BROWSER's clock. Both must mean the same
+     Monday, so this reads the LOCAL date and never toUTCString/toISOString on a
+     Date: at 00:30 on a Monday in BST, new Date().toISOString() still says
+     Sunday, and the student would be shown last week's list until 01:00.
+     exam-dates-2027.json names this same trap — "store with timezone or the
+     timer drifts an hour" — and the pacing cron works around it too (06:00 UTC,
+     before 09:00 London in either regime). Third instance; get it right here.  */
+  const mondayOf = (d) => {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); // local midnight
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));                // getDay: 0=Sun
+    const p = (n) => String(n).padStart(2, "0");
+    return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}`;
+  };
+  const shell = (title, body) => `
+    <div class="wrap"><header class="top" style="padding-top:60px">
+      <div class="kicker">Yaseen Tutoring</div>
+      <h1>${title}</h1><p class="sub">${body}</p>
+      <p style="margin-top:18px"><button class="btn" id="out">Sign out</button></p>
+    </header></div>`;
+
+  const bail = (title, body) => {
+    $(shell(title, body));
+    document.getElementById("out").onclick = async () => {
+      await sb.auth.signOut(); location.href = "index.html";
+    };
+    throw new Error(title); // stop the renderer booting into a broken state
+  };
+
+  /* --- the component code lives inside a display string, and the separator is
+     NOT uniform: 7 plans use a literal '·', 3 use the HTML entity '&middot;'
+     (aqa-bio-al, ocr-bio-al, ocr-chem-al). Splitting on only the literal
+     resolves 16 of 25 and silently loses the rest. Verified: this parse
+     resolves 25/25. Gated by check-page.js so it cannot rot. */
+  const SEP = /\s*(?:\u00b7|&middot;)\s*/;
+  const componentCode = (s) => String(s).split(SEP)[0].trim();
+
+  /* --- the subject, for the switcher's buttons. meta.chips[0] is a spec VERSION
+     ("Spec 7402 · v1.6 (Jul 2026)") and would make a nonsense button. The kicker
+     is "<board> · <subject> · <level>" in all ten plans, so field 1 is the
+     subject: Biology / Biology A / Chemistry / Chemistry A / Mathematics.
+     Same separator trap, same parse. Falls back to the slug if a kicker ever
+     changes shape — a wrong-looking button beats a missing one. */
+  const subjectOf = (plan) => {
+    const parts = String(plan.data.meta.kicker || "").split(SEP);
+    return (parts[1] || plan.slug).trim();
+  };
+
+  function supaStore(assignmentId, planId, dates, startTimes) {
+    let s = {};
+    return {
+      fixedDates: true,                     // Yaseen 16 Jul: the real date, not the student's guess
+      lockedKinds: ["paper", "practise"],   // requires_upload; unlocks Week 7
+      allowReset: false,                    // see the note in check-page.js / the session log
+      startTimes,
+      footNote:
+        "Progress saves to your account, so it follows you between your phone, a school computer and home. " +
+        "Exam dates are the real ones from the exam board's timetable.",
+
+      async load() {
+        const { data, error } = await sb
+          .from("progress").select("task_id,status").eq("assignment_id", assignmentId);
+        if (error) throw error;
+        s = {};
+        // 'done' | 'verified' paint as ticked. 'submitted' is provisionally done
+        // (build-standards §6 pending-when-Monday-hits) and will paint ticked too
+        // once Week 7 can create it. 'denied' and 'not_started' do not.
+        for (const r of data) if (r.status === "done" || r.status === "verified" || r.status === "submitted") s[r.task_id] = 1;
+        return s;
+      },
+
+      async setTask(id, on) {
+        // There is NO DELETE policy on progress for anyone (rls.sql), so an
+        // untick is an UPDATE back to 'not_started' — never a delete. The row
+        // count only grows. updated_at is stamped by the progress_touch trigger.
+        const { error } = await sb.from("progress")
+          .upsert({ assignment_id: assignmentId, plan_id: planId, task_id: id,
+                    status: on ? "done" : "not_started" },
+                  { onConflict: "assignment_id,task_id" });
+        if (error) throw error;
+        if (on) s[id] = 1; else delete s[id];
+      },
+
+      async reset() { throw new Error("reset is disabled on the platform"); },
+      async loadDates() { return dates; },
+      async saveDate() { /* the board sets the date, not the student */ }
+    };
+  }
+
+  async function start() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { location.href = "index.html"; return; }
+
+    // --- the profile row IS the tutor's approval (Yaseen, 16 Jul: "sign up and
+    // approve"). Signing up gets you auth.users; only Yaseen creates public.users.
+    // Without this branch the student authenticates and gets an empty page that
+    // blames itself. RLS returns 0 rows either way — this just says so out loud.
+    const { data: me } = await sb.from("users").select("id,full_name,role").eq("id", session.user.id).maybeSingle();
+    if (!me) {
+      bail("Your account isn't active yet",
+           "You're signed up, but Yaseen hasn't activated your account and assigned your plan yet. " +
+           "Once he has, sign in again and your plan will be here. Nothing else is needed from you.");
+    }
+    if (me.role === "tutor") {
+      bail("This is the student page",
+           "You're signed in as the tutor. The dashboard isn't built yet — it's the next thing after this page.");
+    }
+
+    const { data: asg } = await sb.from("assignments")
+      .select("id,plan_id,series,plans(slug,data)").eq("user_id", session.user.id);
+    if (!asg || !asg.length) {
+      bail(`Hello ${me.full_name.split(" ")[0]}`,
+           "Your account is active, but Yaseen hasn't assigned you a revision plan yet. It'll appear here as soon as he does.");
+    }
+
+    // One plan per subject (§6). Pick from ?a=<assignment_id>, else the first.
+    const want = new URLSearchParams(location.search).get("a");
+    const a = asg.find(x => x.id === want) || asg[0];
+    const planData = a.plans.data;
+
+    // --- real exam dates, joined on (plan_id, code) ---------------------------
+    const { data: comps } = await sb.from("exam_components")
+      .select("code,exam_date,start_time").eq("plan_id", a.plan_id).eq("series", a.series);
+    const byCode = Object.fromEntries((comps || []).map(c => [c.code, c]));
+    const dates = {}, startTimes = {};
+    (planData.meta.papers || []).forEach((p, i) => {
+      const c = byCode[componentCode(p.code)];
+      if (c) { dates["p" + (i + 1)] = c.exam_date; startTimes["p" + (i + 1)] = String(c.start_time).slice(0, 5); }
+    });
+
+    // --- engine 1's output --------------------------------------------------
+    // paced_week, not paced_tasks: build-standards §6 says the year-2-first merge
+    // "is AUTHORED, not handed over by list-order", so it lives in that view and
+    // is not re-derived here. RLS applies (security_invoker) — a student gets
+    // their own rows or none.
+    //
+    // A FAILURE HERE MUST NOT COST THE STUDENT THEIR PLAN. If this query errors
+    // or comes back empty (the Monday job has not run yet, or pacing.sql was
+    // never applied), __PLAN_PACE__ stays null and the renderer shows the whole
+    // plan — which is exactly the page that worked before pacing existed.
+    // Degrading to "everything" is right; degrading to "nothing" would be the
+    // blank-page-that-blames-itself failure again (schema-notes §8).
+    let pace = null;
+    try {
+      const { data: paced, error } = await sb.from("paced_week")
+        .select("task_id,week_start").eq("assignment_id", a.id);
+      if (!error && paced && paced.length) {
+        pace = { weeks: Object.fromEntries(paced.map(r => [r.task_id, r.week_start])), thisWeek: mondayOf(new Date()) };
+      }
+    } catch (e) { pace = null; }
+
+    window.__PLAN_DATA__ = planData;
+    window.__PLAN_STORE__ = supaStore(a.id, a.plan_id, dates, startTimes);
+    window.__PLAN_PACE__ = pace;
+
+    // Chrome the renderer knows nothing about.
+    //
+    // ⚠️ THIS USED TO BE window.addEventListener("load", ...) AND IT NEVER RAN.
+    // The listener is registered here — AFTER four awaited round trips (session,
+    // profile, assignments, exam dates). By then `load` has long since fired, and
+    // an event you subscribe to after it fires never calls you back. Result: no
+    // subject switcher and no sign-out button, silently, with no error in the
+    // console and the plan itself rendering perfectly. Found by Yaseen having two
+    // assignments and no tabs; reproduced in test-platform.js at BOTH 120ms and
+    // 0ms latency, which is what proves it was never a race — it was always broken
+    // and simply invisible until someone held two subjects.
+    //
+    // Nothing here needs `load` anyway: .sticky and .controls are static markup in
+    // renderer.html, parsed before this script even runs. The only real question is
+    // whether the parser has reached them yet, and readyState answers that.
+    const paintChrome = () => {
+      const bar = document.querySelector(".sticky .inner");
+      if (bar && !bar.querySelector(".subjects")) {
+        const nav = document.createElement("div");
+        nav.className = "subjects";
+        // The A-level Maths plan is 621 tasks long. A switcher in the footer is a
+        // switcher nobody reaches, so it goes in the bar that follows you down.
+        if (asg.length > 1) {
+          nav.innerHTML = asg.map(x =>
+            `<a class="subj${x.id === a.id ? " on" : ""}" href="?a=${x.id}">${subjectOf(x.plans)}</a>`).join("");
+        }
+        bar.insertBefore(nav, bar.firstChild);
+      }
+      const foot = document.querySelector(".controls");
+      if (foot && !foot.querySelector(".who")) {
+        const who = document.createElement("div");
+        who.className = "who"; who.style.marginLeft = "auto";
+        who.innerHTML = `<span>${me.full_name}</span><button class="btn" id="signout">Sign out</button>`;
+        foot.appendChild(who);
+        document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); location.href = "index.html"; };
+      }
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paintChrome, { once: true });
+    else paintChrome();
+  }
+
+  // The renderer's loader runs on script order and would fall through to the
+  // drag-drop screen before this finishes. It waits on this promise; a rejection
+  // (no session, not approved, no plan) means "stop", and the screen bail()
+  // already painted is the final one.
+  window.__PLAN_BOOT__ = start();
+})();
+
+</script>
+<script>
+let PLAN=[], META={}, KEY="", DKEY="", TOTAL=0, state={}, dates={}, booted=false, STORE=null, PACE=null, VIEW="week";
+const KIND_CLASS={paper:"k-paper",review:"k-review",practise:"k-practise"};
+const YEAR_LABEL={1:"YEAR 1 \u00b7 REVISION",2:"YEAR 2 \u00b7 NEW"};
+
+/* ---------------------------------------------------------------------------
+   THE STORE SEAM (build-standards §3.6/§9: one renderer, never a fork).
+   Everything that persists goes through STORE. The default below is exactly
+   the localStorage behaviour this file has always had, so bundle.js standalone
+   builds — which have NO database, and for which localStorage is the only
+   store there is (schema.sql:127) — are byte-for-byte unchanged.
+   The platform injects window.__PLAN_STORE__ before this script runs and gets
+   Supabase instead. Same renderer, two stores.
+   Every method is async: the DB one has to be, and the local one pretends to
+   be so there is exactly one code path, not two.
+--------------------------------------------------------------------------- */
+function localStore(key,dkey){
+  const rd=k=>{try{return JSON.parse(localStorage.getItem(k))||{}}catch(e){return {}}};
+  const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+  let s=null;
+  return {
+    fixedDates:false,        // the student types their own — no DB to ask
+    lockedKinds:[],          // offline artifact: nothing to send work to, so nothing is locked
+    allowReset:true,
+    async load(){ s=rd(key); return s; },
+    async setTask(id,on){ if(on)s[id]=1; else delete s[id]; wr(key,s); },
+    async reset(){ s={}; wr(key,s); },
+    async loadDates(){ return rd(dkey); },
+    async saveDate(k,iso){ const d=rd(dkey); d[k]=iso; wr(dkey,d); }
+  };
+}
+
+/* ---------------------------------------------------------------------------
+   THE PACING SEAM. Same move as STORE above, same reason (§3.6/§9: one
+   renderer, never a fork). This file still does not know a database exists.
+
+   The platform injects window.__PLAN_PACE__:
+     { weeks: { taskId: "YYYY-MM-DD" }, thisWeek: "YYYY-MM-DD" }
+   `weeks` is the Monday each remaining task is placed in. The DEFAULT IS NULL,
+   which means "show the whole plan" — byte-for-byte what this file has always
+   done, so bundle.js standalone builds (no database, therefore no pacing) are
+   unchanged.
+
+   Yaseen, 16 Jul 2026, asked for exactly two states: "Shows this week only but
+   has the option to see future tasks to work ahead."
+
+   WHY A TASK CAN HAVE NO WEEK, and why that is not a bug:
+     * papers. Engine 1 never paces them (build-standards v11 split the
+       engines); engine 2 timetables them into the April->exam window and is not
+       built. So 234 tasks legitimately have no date and live in Whole plan.
+     * anything already finished. paced_tasks holds the FORWARD schedule only.
+       A task ticked THIS week keeps its row until Monday, so the live week's
+       list does not shrink under the student as they tick — it is regenerated
+       on Monday, not on click.
+
+   IF NOTHING IS PACED AT ALL we fall back to the whole plan rather than paint
+   an empty page. A student whose Monday job has not run yet must not be shown
+   a blank week that blames them (schema-notes §8: "safe failure, but a
+   failure" — the same shape as the unapproved-account screen).
+--------------------------------------------------------------------------- */
+function paceOn(){ return !!(PACE && PACE.weeks && Object.keys(PACE.weeks).length); }
+function weekOf(id){ return PACE && PACE.weeks ? PACE.weeks[id] : undefined; }
+function inThisWeek(t){ return paceOn() && weekOf(t.id)===PACE.thisWeek; }
+function showTask(t){ return VIEW==="plan" || !paceOn() || inThisWeek(t); }
+
+function badges(t){
+  let h='<span class="badges">';
+  h+='<span class="b b-spec">'+t.spec+'</span>';
+  if(t.tag) h+='<span class="b b-rp">'+t.tag+'</span>';
+  if(t.ms) h+='<span class="b b-ms">'+t.ms+'</span>';
+  if(t.kind!=="learn") h+='<span class="b b-kind '+(KIND_CLASS[t.kind]||"")+'">'+t.kind+'</span>';
+  h+='</span>'; return h;
+}
+
+function buildHeader(){
+  const m=META, n=m.papers.length;
+  const chips=m.chips.map(c=>'<span class="chip">'+c+'</span>').join('')
+    +'<span class="chip" id="taskcount">— tasks</span>';
+  const exam=m.papers.map((p,i)=>
+    '<div class="examcard '+(p.accent||('p'+((i%3)+1)))+'">'
+    +'<div class="lbl">'+p.name+' <span class="code">'+p.code+'</span></div>'
+    +'<div class="cd" id="cd'+i+'"><small>Set your exam date →</small></div>'
+    +'<input type="date" id="date'+i+'" aria-label="'+p.name+' date"></div>').join('');
+  const links=m.links.map(l=>
+    '<a href="'+l.url+'" target="_blank" rel="noopener">'+l.label+' <span>↗</span></a>').join('');
+  document.getElementById('top').innerHTML=
+     '<div class="kicker">'+m.kicker+'</div>'
+    +'<h1>'+m.title+'</h1>'
+    +'<p class="sub">'+m.sub+'</p>'
+    +'<div class="meta">'+chips+'</div>'
+    +'<div class="exambar" style="grid-template-columns:repeat('+n+',1fr)">'+exam+'</div>'
+    +'<nav class="links" aria-label="Key resources">'+links+'</nav>';
+  const howto=document.getElementById('howto');
+  howto.querySelector('ol').innerHTML=(m.howto||[]).map(li=>'<li>'+li+'</li>').join('');
+  howto.hidden=!(m.howto&&m.howto.length);
+  document.getElementById('foot').innerHTML = STORE.footNote || (
+    'Progress saves to this browser (<code>'+KEY+'</code>) against stable task IDs — never bump the key or an ID. '
+    +'Dateless plan object: on the platform the same task IDs carry cross-device progress and the pacing engine slices the Learn phase into weeks.');
+}
+
+function renderApp(){
+  const app=document.getElementById("app"); app.innerHTML='';
+  let lastPhase=null;
+  PLAN.forEach((g,gi)=>{
+    if(g.phase!==lastPhase){
+      lastPhase=g.phase;
+      const ph=document.createElement("section"); ph.className="phase";
+      ph.innerHTML='<h2>'+((META.phaseLabels||{})[g.phase]||g.phase)+'</h2>';
+      app.appendChild(ph);
+    }
+    const det=document.createElement("details");
+    det.className="topic"+(g.year===1?" y1":"");
+    det.open=(g.phase==="learn"&&gi===0); det.dataset.gi=gi;
+    const ychip=g.year?'<span class="ychip '+(g.year===1?"y1":"y2")+'">'+YEAR_LABEL[g.year]+'</span>':'';
+    let inner='<summary><span class="tnum '+(g.year===1?"y1":"")+'">'+g.tnum+'</span><h3>'+g.topic+'</h3>'
+      +ychip+'<span class="tprog" data-tprog="'+gi+'">0/0</span>'
+      +'<svg class="caret" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>'
+      +'<div class="tbar"><i data-tbar="'+gi+'"></i></div><div class="body">';
+    let shown=0;
+    g.sections.forEach(s=>{
+      const vis=s.tasks.filter(showTask);
+      if(!vis.length) return;                       // an empty section is a header with nothing under it
+      shown+=vis.length;
+      inner+='<div class="sec"><div class="shead"><span class="sspec">'+s.spec+'</span><h4>'+s.head+'</h4>'
+        +(g.url?'<a class="pmt" href="'+g.url+'" target="_blank" rel="noopener">PMT ↗</a>':'')
+        +'</div><ul class="tasks">';
+      vis.forEach(t=>{
+        const on=!!state[t.id];
+        // Yaseen, 16 Jul 2026, option (a): a task whose work has to be sent in
+        // is shown, greyed, and says so. NOT self-tickable — letting a student
+        // tick "Paper 1 — June 2018" themselves is the hollow ticking the
+        // two-tier model (§6) exists to stop, and it would write a 'done' the
+        // upload flow then has to un-write. NOT hidden either: a third of the
+        // plan would vanish. Unlocks in Week 7.
+        const locked=STORE.lockedKinds.includes(t.kind)&&!on;
+        // In Whole plan, say which tasks are this week's. Without it "work ahead"
+        // gives you 621 tasks and no idea where you are.
+        const now=(VIEW==="plan"&&inThisWeek(t));
+        inner+='<li class="task'+(on?' done':'')+(locked?' locked':'')+(now?' now':'')+'" data-id="'+t.id+'">'
+          +'<input type="checkbox" id="'+t.id+'"'+(on?' checked':'')+(locked?' disabled':'')+'>'
+          +'<label for="'+t.id+'">'+badges(t)+'<span class="t">'+t.t+'</span>'
+          +(locked?'<span class="soon">You\u2019ll be able to send this to Yaseen from October.</span>':'')
+          +'</label></li>';
+      });
+      inner+='</ul></div>';
+    });
+    inner+='</div>';
+    if(!shown) return;                              // whole topic has nothing in view
+    det.innerHTML=inner; app.appendChild(det);
+  });
+  // Phase headers are emitted ahead of their topics, so a phase whose topics all
+  // filtered out leaves a heading over nothing. Papers do this every week.
+  app.querySelectorAll("section.phase").forEach(ph=>{
+    if(!ph.nextElementSibling || ph.nextElementSibling.tagName!=="DETAILS") ph.remove();
+  });
+  const empty=document.getElementById("weeknone");
+  if(empty) empty.hidden=!(paceOn()&&VIEW==="week"&&!app.querySelector("li.task"));
+}
+
+function refresh(){
+  let done=0;
+  PLAN.forEach((g,gi)=>{
+    let gd=0,gt=0;
+    g.sections.forEach(s=>s.tasks.forEach(t=>{gt++; if(state[t.id]){gd++; done++;}}));
+    const tp=document.querySelector('[data-tprog="'+gi+'"]'); if(tp) tp.textContent=gd+"/"+gt;
+    const tb=document.querySelector('[data-tbar="'+gi+'"]'); if(tb) tb.style.width=(gt?gd/gt*100:0)+"%";
+  });
+  const pct=TOTAL?Math.round(done/TOTAL*100):0;
+  document.getElementById("mbar").style.width=pct+"%";
+  document.getElementById("mpct").textContent=done+" / "+TOTAL+" · "+pct+"%";
+  // The week counter reads the PLAN, not the DOM: in Whole plan view this week's
+  // tasks are still on screen and must still be counted, and in week view a
+  // DOM count would just be re-reading what we drew.
+  const wc=document.getElementById("weekcount");
+  if(wc){
+    if(!paceOn()){ wc.hidden=true; }
+    else{
+      let wd=0,wt=0;
+      PLAN.forEach(g=>g.sections.forEach(s=>s.tasks.forEach(t=>{
+        if(inThisWeek(t)){ wt++; if(state[t.id]) wd++; }
+      })));
+      wc.hidden=false;
+      wc.textContent=wt?(wd+" / "+wt+" this week"):"nothing due this week";
+    }
+  }
+  document.getElementById("footcount").textContent=done+" of "+TOTAL+" tasks done ("+pct+"%)";
+}
+
+function wireCountdowns(){
+  function fmt(iso){
+    if(!iso) return '<small>Set your exam date →</small>';
+    const now=new Date(); now.setHours(0,0,0,0);
+    const days=Math.round((new Date(iso+"T00:00:00")-now)/86400000);
+    if(days>1) return days+' <small>days to go</small>';
+    if(days===1) return '1 <small>day to go</small>';
+    if(days===0) return 'Today <small>· exam day</small>';
+    return '<small>completed</small>';
+  }
+  META.papers.forEach((p,i)=>{
+    const inp=document.getElementById("date"+i), cell=document.getElementById("cd"+i), k="p"+(i+1);
+    cell.innerHTML=fmt(dates[k]);
+    if(STORE.fixedDates){
+      // Yaseen, 16 Jul 2026: "The exam date is based on the real one. not the
+      // student's choice." The 25 dates are verified against the boards' own
+      // final timetables (exam-dates-2027.json); a box the student types into
+      // can only ever disagree with them. So the box goes.
+      inp.remove();
+      if(dates[k]){
+        const d=new Date(dates[k]+"T00:00:00");
+        const when=d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"});
+        const el=document.createElement("div"); el.className="realdate";
+        el.textContent=when+(STORE.startTimes&&STORE.startTimes[k]?" \u00b7 "+STORE.startTimes[k]:"");
+        cell.after(el);
+      }
+      return;
+    }
+    if(dates[k]) inp.value=dates[k];
+    inp.addEventListener("change",async()=>{dates[k]=inp.value; await STORE.saveDate(k,inp.value); cell.innerHTML=fmt(inp.value);});
+  });
+}
+
+async function boot(data){
+  if(booted) return; booted=true;
+  META=data.meta; PLAN=data.plan;
+  KEY=META.key; DKEY=META.dkey;
+  // §5/§9: the keys ride with the data and are never bumped. The DB-backed
+  // store ignores them; the standalone build has nothing else.
+  STORE=window.__PLAN_STORE__||localStore(KEY,DKEY);
+  PACE=window.__PLAN_PACE__||null;   // null => whole plan, exactly as before
+  state=await STORE.load(); dates=await STORE.loadDates();
+  document.getElementById("drop").style.display="none";
+  document.title=(META.title||"Revision Plan")+" — Yaseen Tutoring";
+  buildHeader();
+  TOTAL=0; PLAN.forEach(g=>g.sections.forEach(s=>TOTAL+=s.tasks.length));
+  document.getElementById("taskcount").textContent=TOTAL+" tasks";
+  renderApp(); refresh(); wireCountdowns();
+
+  const app=document.getElementById("app");
+  app.addEventListener("change",async e=>{
+    if(e.target.matches('input[type=checkbox]')){
+      const id=e.target.id, on=e.target.checked;
+      // Optimistic: paint first, persist second, roll back if the store refuses.
+      // A tick that silently fails to save is the worst outcome here — the
+      // student believes work is recorded that isn't.
+      if(on) state[id]=1; else delete state[id];
+      e.target.closest("li.task").classList.toggle("done",on);
+      refresh();
+      try{ await STORE.setTask(id,on); }
+      catch(err){
+        if(on) delete state[id]; else state[id]=1;
+        e.target.checked=!on;
+        e.target.closest("li.task").classList.toggle("done",!on);
+        refresh();
+        alert("That tick didn't save — you may be offline. It has been undone so the page matches your account.");
+      }
+    }
+  });
+  // The toggle only exists when there is something to toggle. An unpaced student
+  // and every standalone build see the page exactly as before, with no dead control.
+  if(paceOn()){
+    const vs=document.getElementById("views"); vs.hidden=false;
+    const setView=v=>{
+      VIEW=v;
+      document.getElementById("vweek").classList.toggle("on",v==="week");
+      document.getElementById("vplan").classList.toggle("on",v==="plan");
+      renderApp(); refresh();
+      // In week view the list is short, so open it: a student should not have to
+      // click through six collapsed topics to find four tasks.
+      document.querySelectorAll("details.topic").forEach(d=>d.open=(v==="week"));
+    };
+    document.getElementById("vweek").onclick=()=>setView("week");
+    document.getElementById("vplan").onclick=()=>setView("plan");
+    setView("week");
+  }
+  document.getElementById("expandAll").onclick=()=>document.querySelectorAll("details.topic").forEach(d=>d.open=true);
+  document.getElementById("collapseAll").onclick=()=>document.querySelectorAll("details.topic").forEach(d=>d.open=false);
+  const rbtn=document.getElementById("reset");
+  if(!STORE.allowReset){ rbtn.hidden=true; }
+  else rbtn.onclick=async()=>{
+    if(confirm("Reset all ticked tasks? This clears saved progress in this browser.")){
+      state={}; await STORE.reset();
+      document.querySelectorAll('input[type=checkbox]').forEach(c=>{c.checked=false;c.closest("li.task").classList.remove("done")});
+      refresh();
+    }
+  };
+}
+
+// ---- data loading: platform > bundle > ?plan= > drag-drop ----
+// __PLAN_BOOT__ exists only when platform.js was injected (build-app.js). It is
+// undefined in a bundle.js standalone build and in local drag-drop preview, so
+// all three original paths behave exactly as before.
+function dropMode(){
+  // Only reached when there is genuinely nothing to load. Everything before this
+  // point leaves the neutral "Loading your plan…" overlay up, because on the
+  // platform the wait is real (a session, an assignment, a plan and a progress
+  // fetch) and the student would otherwise watch an internal preview tool flash
+  // past on every load.
+  document.getElementById("drop").classList.add("dropmode");
+  document.getElementById("dropTitle").innerHTML='Drop a plan <code>.json</code> to preview';
+  document.getElementById("dropmsg").innerHTML='Drag a plan data file (e.g. <code>aqa-bio-as.json</code>) anywhere onto this page. Or open with <code>?plan=aqa-bio-as.json</code> when served.';
+}
+(async()=>{
+  if(window.__PLAN_BOOT__){
+    try{ await window.__PLAN_BOOT__; }
+    catch(e){ return; }   // platform.js has already painted the reason
+  }
+  if(window.__PLAN_DATA__){ return boot(window.__PLAN_DATA__); }
+  const p=new URLSearchParams(location.search).get("plan");
+  if(p){ fetch(p).then(r=>r.json()).then(boot).catch(err=>{dropMode();document.getElementById("dropmsg").textContent="Could not load "+p+": "+err.message;}); return; }
+  dropMode();
+})();
+window.addEventListener("dragover",e=>{e.preventDefault(); document.getElementById("drop").classList.add("over");});
+window.addEventListener("dragleave",e=>{if(e.target===document.getElementById("drop"))document.getElementById("drop").classList.remove("over");});
+window.addEventListener("drop",e=>{
+  e.preventDefault(); document.getElementById("drop").classList.remove("over");
+  const f=e.dataTransfer.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ booted=false; boot(JSON.parse(rd.result)).catch(err=>alert("Could not render that plan: "+err.message)); }catch(err){ alert("Not a valid plan JSON: "+err.message); } };
+  rd.readAsText(f);
+});
+</script>
+</body>
+</html>
