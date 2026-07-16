@@ -358,15 +358,28 @@ li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;backg
     window.__PLAN_DATA__ = planData;
     window.__PLAN_STORE__ = supaStore(a.id, a.plan_id, dates, startTimes);
 
-    // Chrome the renderer knows nothing about, added once it has painted.
-    // The subject switcher goes in the STICKY bar, not the controls at the foot:
-    // the A-level Maths plan is 621 tasks long, and a switcher you have to scroll
-    // to the bottom to reach is a switcher nobody uses.
-    window.addEventListener("load", () => {
+    // Chrome the renderer knows nothing about.
+    //
+    // ⚠️ THIS USED TO BE window.addEventListener("load", ...) AND IT NEVER RAN.
+    // The listener is registered here — AFTER four awaited round trips (session,
+    // profile, assignments, exam dates). By then `load` has long since fired, and
+    // an event you subscribe to after it fires never calls you back. Result: no
+    // subject switcher and no sign-out button, silently, with no error in the
+    // console and the plan itself rendering perfectly. Found by Yaseen having two
+    // assignments and no tabs; reproduced in test-platform.js at BOTH 120ms and
+    // 0ms latency, which is what proves it was never a race — it was always broken
+    // and simply invisible until someone held two subjects.
+    //
+    // Nothing here needs `load` anyway: .sticky and .controls are static markup in
+    // renderer.html, parsed before this script even runs. The only real question is
+    // whether the parser has reached them yet, and readyState answers that.
+    const paintChrome = () => {
       const bar = document.querySelector(".sticky .inner");
-      if (bar) {
+      if (bar && !bar.querySelector(".subjects")) {
         const nav = document.createElement("div");
         nav.className = "subjects";
+        // The A-level Maths plan is 621 tasks long. A switcher in the footer is a
+        // switcher nobody reaches, so it goes in the bar that follows you down.
         if (asg.length > 1) {
           nav.innerHTML = asg.map(x =>
             `<a class="subj${x.id === a.id ? " on" : ""}" href="?a=${x.id}">${subjectOf(x.plans)}</a>`).join("");
@@ -374,14 +387,16 @@ li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;backg
         bar.insertBefore(nav, bar.firstChild);
       }
       const foot = document.querySelector(".controls");
-      if (foot) {
+      if (foot && !foot.querySelector(".who")) {
         const who = document.createElement("div");
         who.className = "who"; who.style.marginLeft = "auto";
         who.innerHTML = `<span>${me.full_name}</span><button class="btn" id="signout">Sign out</button>`;
         foot.appendChild(who);
         document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); location.href = "index.html"; };
       }
-    });
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paintChrome, { once: true });
+    else paintChrome();
   }
 
   // The renderer's loader runs on script order and would fall through to the
