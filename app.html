@@ -637,8 +637,17 @@ function renderApp(){
 function refresh(){
   let done=0;
   PLAN.forEach((g,gi)=>{
-    let gd=0,gt=0;
-    g.sections.forEach(s=>s.tasks.forEach(t=>{gt++; if(state[t.id]){gd++; done++;}}));
+    // The group badge counts what the CURRENT VIEW shows, via the same showTask()
+    // the render loop filters on — so "0/4" in This week and "0/37" in Whole plan,
+    // and the badge can never disagree with the checkboxes beneath it. `done`
+    // (the overall bar) still counts the whole plan and is unaffected: total
+    // progress must not lurch when the view changes.
+    let gd=0, gt=0;
+    g.sections.forEach(s=>s.tasks.forEach(t=>{
+      if(state[t.id]) done++;                 // overall bar: always the whole plan
+      if(!showTask(t)) return;                 // badge: only what this view renders
+      gt++; if(state[t.id]) gd++;
+    }));
     const tp=document.querySelector('[data-tprog="'+gi+'"]'); if(tp) tp.textContent=gd+"/"+gt;
     const tb=document.querySelector('[data-tbar="'+gi+'"]'); if(tb) tb.style.width=(gt?gd/gt*100:0)+"%";
   });
