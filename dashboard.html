@@ -81,7 +81,17 @@ button.ok:hover{background:var(--teal-ink)}
 button.no{background:#fff;color:var(--red-ink);border-color:#f0c4c4}
 button.no:hover{background:var(--red-soft)}
 button.ghost{background:#fff;color:var(--muted)}
+button.danger{background:#fff;color:var(--red-ink);border-color:#f0c4c4}
+button.danger:hover{background:var(--red-soft);border-color:var(--red-ink)}
 button:disabled{opacity:.5;cursor:default}
+.mgmt{padding:0;overflow:hidden}
+.mgmt-hd{font-weight:700;font-size:13px;padding:12px 16px;background:var(--amber-soft);color:var(--amber);border-bottom:1px solid var(--line)}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.mrow:last-child{border-bottom:none}
+.pick{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+select.planpick{font-family:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:#fbfcfe;color:var(--ink);max-width:190px}
+.planmgmt{border:1px dashed var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px;background:#fbfcfe}
+.pm-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:6px}
 input.note{font-family:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;width:150px;background:#fbfcfe}
 input.filter{font-family:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;width:100%;background:#fbfcfe;margin-bottom:9px}
 .taskscroll{max-height:56vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fafbfd}
@@ -150,21 +160,38 @@ const fdate = d => d ? new Date(d).toLocaleDateString("en-GB",{day:"numeric",mon
 
 $("signout").onclick = async () => { await sb.auth.signOut(); location.href = "index.html"; };
 
-// ---- cohort overview -------------------------------------------------------
-async function loadCohort(){
-  const { data, error } = await sb.from("cohort_pace").select("*");
-  if (error){ $("root").innerHTML = `<div class="loading card">Couldn't load the cohort: ${esc(error.message)}</div>`; return; }
-  if (!data.length){ $("root").innerHTML = `<div class="loading card">No students assigned yet.</div>`; return; }
+// ---- cohort overview + student/plan management -----------------------------
+let PLANS = [], NAMES = {};
+function planSelect(id, excludeSlugs){
+  const opts = PLANS.filter(p => !excludeSlugs.includes(p.slug))
+    .map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
+  return opts ? `<select class="planpick" id="${id}">${opts}</select>` : `<span class="c">no other plans</span>`;
+}
 
-  // Group by student, so a 3-subject student is ONE block, not three loose rows.
-  // Triage is preserved: subjects sort worst-first within a student, and students
-  // sort by their WORST subject — so whoever needs attention most is still on top.
-  const rateOf = r => (r.tasks_per_week == null ? -1 : Number(r.tasks_per_week)); // unpaced = -1, sinks
+async function loadCohort(){
+  const [pace, usersR, plansR, pend] = await Promise.all([
+    sb.from("cohort_pace").select("*"),
+    sb.from("users").select("id,full_name,email,left_on").eq("role","student"),
+    sb.from("plans").select("id,slug").order("slug"),
+    sb.rpc("pending_signups")
+  ]);
+  if (pace.error){ $("root").innerHTML = `<div class="loading card">Couldn't load the cohort: ${esc(pace.error.message)}</div>`; return; }
+  PLANS = (plansR.data||[]).map(p => ({ id:p.id, slug:p.slug, label:planLabel(p.slug) }));
+  const data = pace.data || [];
+  NAMES = {}; (usersR.data||[]).forEach(u => NAMES[u.id] = u.full_name || u.email || "this student");
+
+  // Group cohort_pace rows by student (a 3-subject student is ONE block).
   const byStudent = new Map();
   for (const r of data){
     if (!byStudent.has(r.user_id)) byStudent.set(r.user_id, { user_id:r.user_id, name:r.full_name, email:r.email, rows:[] });
     byStudent.get(r.user_id).rows.push(r);
   }
+  const leftOf = {}; (usersR.data||[]).forEach(u => leftOf[u.id] = u.left_on);
+  const withPlan = new Set(data.map(r => r.user_id));
+  const noPlan  = (usersR.data||[]).filter(u => !withPlan.has(u.id));      // approved, unassigned
+  const pending = pend.error ? [] : (pend.data || []);                      // signed up, unapproved
+
+  const rateOf = r => (r.tasks_per_week == null ? -1 : Number(r.tasks_per_week));
   const subjSort = (a,b) => {
     const ra=a.tasks_per_week, rb=b.tasks_per_week;
     if (ra==null && rb==null) return (a.plan_slug||"").localeCompare(b.plan_slug||"");
@@ -178,7 +205,30 @@ async function loadCohort(){
     return y.worst - x.worst;
   });
 
+  // -- waiting for approval --
+  const pendCard = pending.length ? `<div class="card mgmt">
+    <div class="mgmt-hd">Waiting for approval <span class="c">— ${pending.length}</span></div>
+    ${pending.map(p => `<div class="mrow">
+      <div class="nm">${esc(p.full_name||p.email)}<small>${esc(p.email)}</small></div>
+      <button class="ok" data-approve="${esc(p.id)}">Approve</button>
+    </div>`).join("")}</div>` : ``;
+
+  // -- approved, no plan yet --
+  const noPlanCard = noPlan.length ? `<div class="card mgmt">
+    <div class="mgmt-hd">Approved — no plan yet <span class="c">— ${noPlan.length}</span></div>
+    ${noPlan.map(u => `<div class="mrow">
+      <div class="nm">${esc(u.full_name||"—")}<small>${esc(u.email||"")}</small></div>
+      <span class="pick">${planSelect("add-"+u.id, [])}<button class="ok" data-assign="${esc(u.id)}" data-pick="add-${esc(u.id)}">Assign plan</button></span>
+    </div>`).join("")}</div>` : ``;
+
+  // -- active students --
   const blocks = students.map(s => {
+    const heldSlugs = s.rows.map(r => r.plan_slug);
+    const left = leftOf[s.user_id];
+    const leftFlag = left ? `<span class="badge warn" title="deletes ~6 months after ${fdate(left)}">leaving</span>` : ``;
+    const leaveBtn = left
+      ? `<button class="ghost" data-reinstate="${esc(s.user_id)}">Reinstate</button>`
+      : `<button class="ghost" data-left="${esc(s.user_id)}">Mark left</button>`;
     const worstBadge = s.worst < 0
       ? `<span class="badge none">not yet paced</span>`
       : `<span class="rate">${s.worst}</span><span class="c">/wk on the subject they're furthest behind on</span>`;
@@ -187,7 +237,7 @@ async function loadCohort(){
         ? `<span class="badge none">not yet paced</span>`
         : `<span class="rate">${r.tasks_per_week}</span><span class="c">/wk</span>`;
       const flag = r.floor_breached ? `<span class="badge warn" title="${esc(r.message||'behind the late-joiner floor')}">⚠ floor</span>` : ``;
-      return `<div class="trow" data-a="${r.assignment_id}" data-p="${r.plan_id}">
+      return `<div class="trow" data-a="${r.assignment_id}" data-p="${r.plan_id}" data-uid="${esc(s.user_id)}" data-slug="${esc(r.plan_slug)}">
         <div class="plan">${esc(planLabel(r.plan_slug))}</div>
         <div class="dl">${fdate(r.deadline)}</div>
         <div>${r.remaining==null?"—":r.remaining}</div>
@@ -198,9 +248,12 @@ async function loadCohort(){
     }).join("");
     return `<div class="student">
       <div class="student-hd">
-        <div class="nm">${esc(s.name||"—")}<small>${esc(s.email||"")}</small></div>
+        <div class="nm">${esc(s.name||"—")}<small>${esc(s.email||"")}</small> ${leftFlag}</div>
         <div class="hd-right">${worstBadge}
+          <span class="pick">${planSelect("addp-"+s.user_id, heldSlugs)}<button class="ghost" data-assign="${esc(s.user_id)}" data-pick="addp-${esc(s.user_id)}">Add plan</button></span>
           <button class="ghost" id="rst-${s.user_id}">Reset password</button>
+          ${leaveBtn}
+          <button class="danger" data-delete="${esc(s.user_id)}">Delete</button>
           <span id="rstout-${s.user_id}"></span></div>
       </div>
       <div class="subj-head"><div>Plan</div><div>Deadline</div><div>Left</div><div>Wks</div><div>Tasks/wk</div></div>
@@ -208,10 +261,65 @@ async function loadCohort(){
     </div>`;
   }).join("");
 
-  $("root").innerHTML = `<div class="card">${blocks}</div>`;
+  const activeCard = blocks ? `<div class="card">${blocks}</div>` : ``;
+  const emptyMsg = (!pending.length && !noPlan.length && !blocks) ? `<div class="loading card">No students yet. Signups will appear here to approve.</div>` : ``;
+  $("root").innerHTML = pendCard + noPlanCard + activeCard + emptyMsg;
 
-  document.querySelectorAll(".trow").forEach(row => row.onclick = () => toggle(row));
-  students.forEach(s => { const b = $("rst-"+s.user_id); if (b) b.onclick = () => resetPassword(s.user_id, s.name); });
+  document.querySelectorAll(".trow").forEach(row => row.onclick = (e) => { if (!e.target.closest("button,select")) toggle(row); });
+  students.forEach(s => { const b=$("rst-"+s.user_id); if(b) b.onclick=()=>resetPassword(s.user_id,s.name); });
+  wireMgmt();
+}
+
+function wireMgmt(){
+  document.querySelectorAll("[data-approve]").forEach(b => b.onclick = () => rpcAction("approve_student", { p_user_id: b.dataset.approve }));
+  document.querySelectorAll("[data-assign]").forEach(b => b.onclick = () => {
+    const sel = $(b.dataset.pick);
+    if (!sel || sel.tagName!=="SELECT" || !sel.value){ flash("Pick a plan first", true); return; }
+    rpcAction("assign_plan", { p_user_id: b.dataset.assign, p_plan_id: sel.value });
+  });
+  document.querySelectorAll("[data-reinstate]").forEach(b => b.onclick = () => rpcAction("reinstate_student", { p_user_id: b.dataset.reinstate }));
+  document.querySelectorAll("[data-left]").forEach(b => b.onclick = () => {
+    const uid = b.dataset.left;
+    if (!confirm(`Mark ${NAMES[uid]||"this student"} as left?\n\nTheir account and data are kept for 6 months, then deleted. You can undo this any time before then.`)) return;
+    rpcAction("mark_student_left", { p_user_id: uid });
+  });
+  document.querySelectorAll("[data-delete]").forEach(b => b.onclick = () => {
+    const uid = b.dataset.delete, nm = NAMES[uid] || "this student";
+    const typed = prompt(`This ERASES ${nm} and ALL their data now — account, progress, and any files. It cannot be undone.\n\nType DELETE to confirm.`);
+    if (typed === null) return;
+    if (typed !== "DELETE"){ flash("Not deleted — you didn't type DELETE", true); return; }
+    rpcAction("delete_student", { p_user_id: uid });
+  });
+}
+
+// One guarded RPC + refresh. Every management action returns a human message.
+async function rpcAction(fn, args){
+  const { data, error } = await sb.rpc(fn, args);
+  if (error){ flash(error.message, true); return; }
+  flash(typeof data === "string" ? data : "Done");
+  loadCohort();
+}
+
+// change plan = assign the new one, then remove the old (this order means a
+// failure leaves the student with BOTH, never neither).
+async function changePlan(aid, uid, oldSlug){
+  const sel = $("chg-"+aid);
+  if (!sel || sel.tagName!=="SELECT" || !sel.value){ flash("Pick the new plan first", true); return; }
+  const newLabel = (PLANS.find(p=>p.id===sel.value)||{}).label || "the new plan";
+  const name = NAMES[uid] || "this student";
+  if (!confirm(`Change ${name} from ${planLabel(oldSlug)} to ${newLabel}?\n\nTheir ${planLabel(oldSlug)} progress is deleted — a plan change is a fresh start.`)) return;
+  let r = await sb.rpc("assign_plan", { p_user_id: uid, p_plan_id: sel.value });
+  if (r.error){ flash(r.error.message, true); return; }
+  r = await sb.rpc("remove_plan", { p_assignment_id: aid });
+  if (r.error){ flash(r.error.message, true); return; }
+  flash(`${name} changed to ${newLabel}`); loadCohort();
+}
+async function removePlan(aid, uid, slug){
+  const name = NAMES[uid] || "this student";
+  if (!confirm(`Remove ${planLabel(slug)} from ${name}?\n\nTheir progress on it is deleted and cannot be recovered.`)) return;
+  const { data, error } = await sb.rpc("remove_plan", { p_assignment_id: aid });
+  if (error){ flash(error.message, true); return; }
+  flash(typeof data === "string" ? data : "Removed"); loadCohort();
 }
 
 function toggle(row){
@@ -253,7 +361,18 @@ async function loadPanel(aid, pid){
   const textById = flattenTaskText(plan.data?.data ?? plan.data ?? {}, {});
   const pending = (subs.data||[]).filter(s => s.status === "submitted");
 
+  // the trow carries the student + plan slug this panel belongs to
+  const trow = document.querySelector('.trow[data-a="'+CSS.escape(aid)+'"]');
+  const uid = trow?.dataset.uid, slug = trow?.dataset.slug || "";
+
   el.innerHTML = `
+    <div class="sec planmgmt">
+      <h3>This plan <span class="c">— ${esc(planLabel(slug))}</span></h3>
+      <div class="pm-row">
+        <span class="pick">Change to ${planSelect("chg-"+aid, [slug])}<button class="ghost" id="chgbtn-${aid}">Change</button></span>
+        <button class="danger" id="rmbtn-${aid}">Remove plan</button>
+      </div>
+    </div>
     <div class="sec" id="subs-${aid}">
       <h3>Submissions to review <span class="c">— ${pending.length} pending</span></h3>
       ${pending.length ? pending.map(s => subItem(aid, s, textById[s.task_id])).join("") : `<div class="empty">Nothing waiting.</div>`}
@@ -263,6 +382,10 @@ async function loadPanel(aid, pid){
       <input class="filter" id="flt-${aid}" placeholder="Filter by wording, task id or spec…">
       <div id="tasks-${aid}" class="taskscroll"></div>
     </div>`;
+
+  // plan management
+  { const rm = $("rmbtn-"+aid); if (rm) rm.onclick = () => removePlan(aid, uid, slug);
+    const cg = $("chgbtn-"+aid); if (cg) cg.onclick = () => changePlan(aid, uid, slug); }
 
   // submission accept / deny
   pending.forEach(s => wireSub(aid, s.task_id));
