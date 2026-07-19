@@ -66,6 +66,10 @@ a.signout:hover{color:var(--red-ink)}
 .item{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:7px;font-size:13px}
 .item .body{flex:1;min-width:0}
 .item .tid{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--teal-ink);font-weight:600}
+.item .spec-ref{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.02em}
+.item .ttext{color:var(--ink);margin-top:3px;font-size:13.5px;line-height:1.45}
+.item .ttext a{color:var(--indigo);text-decoration:underline}
+.item .ttext b,.item .ttext strong{font-weight:600}
 .item .spec{color:var(--ink);margin-top:1px}
 .item .st{font-size:11px;color:var(--muted);margin-top:2px}
 .item .st.note{color:var(--amber);font-style:italic}
@@ -215,47 +219,67 @@ function toggle(row){
   if (now && !panel.dataset.loaded){ panel.dataset.loaded = "1"; loadPanel(aid, row.dataset.p); }
 }
 
+// Walk the plan JSON and collect every task's authored wording (the `t` field).
+// The projection table (plan_tasks) only carries the spec code, so the actual
+// "what to do" text has to come from the plan itself — the same text the student sees.
+function flattenTaskText(node, map){
+  if (Array.isArray(node)) { for (const n of node) flattenTaskText(n, map); }
+  else if (node && typeof node === "object"){
+    if (typeof node.id === "string" && typeof node.t === "string") map[node.id] = node.t;
+    for (const k in node) flattenTaskText(node[k], map);
+  }
+  return map;
+}
+const stripHtml = s => (s||"").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
 // ---- per-subject panel: submissions · tasks (reset lives in the student header) --
 async function loadPanel(aid, pid){
   const el = $("panel-"+aid).querySelector(".panel-in");
   el.innerHTML = `<div class="empty">Loading…</div>`;
 
-  const [subs, prog, tasks] = await Promise.all([
+  const [subs, prog, tasks, plan] = await Promise.all([
     sb.from("submissions").select("task_id,status,file_path,tutor_note").eq("assignment_id", aid),
     sb.from("progress").select("task_id,status,tutor_note").eq("assignment_id", aid),
-    sb.from("plan_tasks").select("task_id,kind,phase,year,spec,requires_upload,ord").eq("plan_id", pid).order("ord")
+    sb.from("plan_tasks").select("task_id,kind,phase,year,spec,requires_upload,ord").eq("plan_id", pid).order("ord"),
+    sb.from("plans").select("data").eq("id", pid).single()
   ]);
-  if (subs.error || prog.error || tasks.error){
-    el.innerHTML = `<div class="empty">Couldn't load: ${esc((subs.error||prog.error||tasks.error).message)}</div>`; return;
+  if (subs.error || prog.error || tasks.error || plan.error){
+    el.innerHTML = `<div class="empty">Couldn't load: ${esc((subs.error||prog.error||tasks.error||plan.error).message)}</div>`; return;
   }
   const statusOf = {}; (prog.data||[]).forEach(p => statusOf[p.task_id] = p);
-  const specOf = {}; (tasks.data||[]).forEach(t => specOf[t.task_id] = t);
+  const textById = flattenTaskText(plan.data?.data ?? plan.data ?? {}, {});
   const pending = (subs.data||[]).filter(s => s.status === "submitted");
 
   el.innerHTML = `
     <div class="sec" id="subs-${aid}">
       <h3>Submissions to review <span class="c">— ${pending.length} pending</span></h3>
-      ${pending.length ? pending.map(s => subItem(aid, s, specOf[s.task_id])).join("") : `<div class="empty">Nothing waiting.</div>`}
+      ${pending.length ? pending.map(s => subItem(aid, s, textById[s.task_id])).join("") : `<div class="empty">Nothing waiting.</div>`}
     </div>
     <div class="sec">
       <h3>Tasks <span class="c">— tick / untick</span></h3>
-      <input class="filter" id="flt-${aid}" placeholder="Filter by task id or spec…">
+      <input class="filter" id="flt-${aid}" placeholder="Filter by wording, task id or spec…">
       <div id="tasks-${aid}"></div>
     </div>`;
 
   // submission accept / deny
   pending.forEach(s => wireSub(aid, s.task_id));
 
-  // task list (render a slice, filterable; keeps 600-task plans responsive)
-  const all = (tasks.data||[]).map(t => ({ ...t, st: (statusOf[t.task_id]||{}).status || "not_started", note:(statusOf[t.task_id]||{}).tutor_note }));
+  // task list (render a slice, filterable; keeps 600-task plans responsive).
+  // Each task carries its authored wording (text) + a plain version for filtering.
+  const all = (tasks.data||[]).map(t => {
+    const text = textById[t.task_id] || "";
+    return { ...t, text, plain: stripHtml(text),
+             st: (statusOf[t.task_id]||{}).status || "not_started",
+             note:(statusOf[t.task_id]||{}).tutor_note };
+  });
   renderTasks(aid, pid, all);
 }
 
-function subItem(aid, s, t){
+function subItem(aid, s, text){
   return `<div class="item" data-sub="${esc(s.task_id)}">
     <div class="body">
       <div class="tid">${esc(s.task_id)}</div>
-      <div class="spec">${esc(t? t.spec : "(task not in plan)")}</div>
+      <div class="ttext">${text || "<span class='spec-ref'>(task not in plan)</span>"}</div>
       ${s.file_path ? `<div class="st">📎 submitted a file</div>` : `<div class="st">sent in for review</div>`}
     </div>
     <div class="acts">
@@ -287,7 +311,7 @@ const cssTidSel = s => String(s).replace(/(["\\])/g,"\\$1");
 let TASKLIMIT = {};
 function renderTasks(aid, pid, all){
   const flt = ($("flt-"+aid).value||"").toLowerCase();
-  const filtered = all.filter(t => !flt || t.task_id.toLowerCase().includes(flt) || (t.spec||"").toLowerCase().includes(flt));
+  const filtered = all.filter(t => !flt || t.task_id.toLowerCase().includes(flt) || (t.spec||"").toLowerCase().includes(flt) || (t.plain||"").toLowerCase().includes(flt));
   const lim = TASKLIMIT[aid] || 25;
   const shown = filtered.slice(0, lim);
   const box = $("tasks-"+aid);
@@ -315,8 +339,13 @@ function taskItem(aid, t){
     action = `<input class="note" id="tn-${aid}-${cssid(t.task_id)}" placeholder="reason (optional)"><button class="ok" id="tt-${aid}-${cssid(t.task_id)}">Tick</button>`;
   }
   const noteLine = t.note ? `<div class="st note">note: ${esc(t.note)}</div>` : ``;
+  const wording = t.text || `<span class="spec-ref">(no wording found)</span>`;
   return `<div class="item">
-    <div class="body"><div class="tid">${esc(t.task_id)} ${kindBadge}</div><div class="spec">${esc(t.spec)}</div><div class="st">${st}</div>${noteLine}</div>
+    <div class="body">
+      <div class="tid">${esc(t.task_id)} ${kindBadge} <span class="spec-ref">${esc(t.spec)}</span></div>
+      <div class="ttext">${wording}</div>
+      <div class="st">${st}</div>${noteLine}
+    </div>
     <div class="acts">${action}</div></div>`;
 }
 
