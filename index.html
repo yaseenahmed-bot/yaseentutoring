@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Yaseen Tutoring</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#1c2230; --muted:#5b6577; --line:#e6e9ef;
+  --teal:#0f9d8f; --teal-ink:#0a6f66; --teal-soft:#e5f5f2;
+  --indigo:#4f46e5; --indigo-soft:#ecebfb; --amber:#d98a00; --amber-soft:#fbf1dc;
+  --shadow:0 1px 2px rgba(20,30,50,.05),0 8px 24px rgba(20,30,50,.05); --radius:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5;
+     -webkit-font-smoothing:antialiased;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+h1{font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em;margin:8px 0 4px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-ink);font-weight:600}
+.card{width:100%;max-width:400px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow);padding:30px 28px;border-top:3px solid var(--teal)}
+p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+label.f{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 5px;letter-spacing:.02em}
+input{width:100%;font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);
+      border-radius:10px;background:#fbfcfe;color:var(--ink)}
+input:focus{outline:2px solid var(--indigo);outline-offset:1px;border-color:transparent}
+button.go{width:100%;margin-top:20px;background:var(--teal);color:#fff;border:none;border-radius:10px;
+          padding:12px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer}
+button.go:hover{background:var(--teal-ink)}
+button.go:disabled{opacity:.55;cursor:default}
+.alt{margin-top:16px;font-size:13px;color:var(--muted);text-align:center}
+.alt a{color:var(--teal-ink);font-weight:600;cursor:pointer;text-decoration:none}
+.alt a:hover{text-decoration:underline}
+.msg{margin-top:16px;font-size:13px;padding:10px 12px;border-radius:8px;display:none}
+.msg.err{display:block;background:#fdecec;color:#a32222;border-left:3px solid #d14343}
+.msg.ok{display:block;background:var(--teal-soft);color:var(--teal-ink);border-left:3px solid var(--teal)}
+.note{margin-top:18px;font-size:12px;color:var(--muted);background:var(--amber-soft);
+      border-left:3px solid var(--amber);padding:9px 11px;border-radius:0 8px 8px 0;display:none}
+.note.on{display:block}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="kicker">Yaseen Tutoring</div>
+  <h1 id="hd">Sign in</h1>
+  <p class="sub" id="sb">Your revision plan, your ticks, on any device.</p>
+
+  <div id="nameRow" style="display:none">
+    <label class="f" for="name">Your full name</label>
+    <input id="name" type="text" autocomplete="name" placeholder="As Yaseen knows you">
+  </div>
+
+  <label class="f" for="email">Email</label>
+  <input id="email" type="email" autocomplete="email" placeholder="your.name@example.com">
+
+  <label class="f" for="pw">Password</label>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="••••••••">
+
+  <button class="go" id="go">Sign in</button>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="note" id="note">
+    Use a <b>personal</b> email address, not your school one — school email blocks
+    messages from new senders, and this is where your week-ahead email goes.
+  </div>
+
+  <p class="alt" id="alt">New here? <a id="swap">Create an account</a></p>
+  <p class="alt" style="margin-top:10px;font-size:12px">Forgotten your password? Ask Yaseen — he'll reset it for you.</p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+const sb = window.supabase.createClient(window.__SUPA__.url, window.__SUPA__.anonKey);
+let mode = "in";
+const $ = id => document.getElementById(id);
+const say = (t, cls) => { const m = $("msg"); m.textContent = t; m.className = "msg " + cls; };
+
+// Already signed in? Go straight through.
+sb.auth.getSession().then(({ data: { session } }) => { if (session) location.href = "app.html"; });
+
+// Delegated: the link below gets rewritten on every swap, so binding directly
+// to it would work exactly once.
+$("alt").addEventListener("click", e => {
+  if (e.target.id !== "swap") return;
+  mode = mode === "in" ? "up" : "in";
+  const up = mode === "up";
+  $("hd").textContent   = up ? "Create your account" : "Sign in";
+  $("sb").textContent   = up ? "Sign up here, then Yaseen activates your account and assigns your plan."
+                             : "Your revision plan, your ticks, on any device.";
+  $("go").textContent   = up ? "Create account" : "Sign in";
+  $("go").disabled      = false;
+  $("nameRow").style.display = up ? "block" : "none";
+  $("note").className   = up ? "note on" : "note";
+  $("alt").innerHTML    = up ? 'Already have an account? <a id="swap">Sign in</a>'
+                             : 'New here? <a id="swap">Create an account</a>';
+  $("pw").autocomplete  = up ? "new-password" : "current-password";
+  $("msg").className    = "msg";
+});
+
+$("go").onclick = async () => {
+  const email = $("email").value.trim(), pw = $("pw").value, name = $("name").value.trim();
+  if (!email || !pw) return say("Fill in your email and password.", "err");
+  if (mode === "up" && !name) return say("Yaseen needs your full name to find you.", "err");
+  if (mode === "up" && pw.length < 8) return say("Use at least 8 characters for your password.", "err");
+
+  $("go").disabled = true;
+  try {
+    if (mode === "up") {
+      // full_name rides in user_metadata. It is NOT a profile row — signing up
+      // gets you a login and nothing else. Yaseen creates the profile row, and
+      // that IS the approval (his ruling, 16 Jul 2026).
+      const { error } = await sb.auth.signUp({ email, password: pw, options: { data: { full_name: name } } });
+      if (error) throw error;
+      say("Account created. Yaseen now needs to activate it and assign your plan — he'll tell you when it's ready. "
+        + "You don't need to do anything else.", "ok");
+      $("go").textContent = "Done";
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+      if (error) throw error;
+      location.href = "app.html";
+    }
+  } catch (e) {
+    say(/Invalid login/i.test(e.message)
+        ? "That email and password don't match. If you've forgotten it, ask Yaseen to reset it."
+        : e.message, "err");
+    $("go").disabled = false;
+  }
+};
+
+["email", "pw", "name"].forEach(id =>
+  $(id).addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); }));
+</script>
+</body>
+</html>
