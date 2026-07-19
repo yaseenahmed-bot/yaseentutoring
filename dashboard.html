@@ -84,6 +84,9 @@ button.ghost{background:#fff;color:var(--muted)}
 button:disabled{opacity:.5;cursor:default}
 input.note{font-family:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;width:150px;background:#fbfcfe}
 input.filter{font-family:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;width:100%;background:#fbfcfe;margin-bottom:9px}
+.taskscroll{max-height:56vh;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fafbfd}
+.taskscroll::-webkit-scrollbar{width:10px}
+.taskscroll::-webkit-scrollbar-thumb{background:#d6dbe4;border-radius:6px;border:2px solid #fafbfd}
 .disabled-tag{font-size:11px;color:var(--muted)}
 .pw{font-family:"IBM Plex Mono",monospace;font-size:14px;background:var(--amber-soft);border:1px solid #ead9ae;color:#7a5200;padding:8px 11px;border-radius:9px;display:inline-block;margin-top:6px;user-select:all}
 .empty{color:var(--muted);font-size:13px;padding:6px 2px}
@@ -256,9 +259,9 @@ async function loadPanel(aid, pid){
       ${pending.length ? pending.map(s => subItem(aid, s, textById[s.task_id])).join("") : `<div class="empty">Nothing waiting.</div>`}
     </div>
     <div class="sec">
-      <h3>Tasks <span class="c">— tick / untick</span></h3>
+      <h3>Tasks <span class="c">— tick / untick · <span id="tcount-${aid}"></span></span></h3>
       <input class="filter" id="flt-${aid}" placeholder="Filter by wording, task id or spec…">
-      <div id="tasks-${aid}"></div>
+      <div id="tasks-${aid}" class="taskscroll"></div>
     </div>`;
 
   // submission accept / deny
@@ -308,26 +311,53 @@ function wireSub(aid, tid){
 }
 const cssTidSel = s => String(s).replace(/(["\\])/g,"\\$1");
 
-let TASKLIMIT = {};
 function renderTasks(aid, pid, all){
-  const flt = ($("flt-"+aid).value||"").toLowerCase();
-  const filtered = all.filter(t => !flt || t.task_id.toLowerCase().includes(flt) || (t.spec||"").toLowerCase().includes(flt) || (t.plain||"").toLowerCase().includes(flt));
-  const lim = TASKLIMIT[aid] || 25;
-  const shown = filtered.slice(0, lim);
   const box = $("tasks-"+aid);
-  box.innerHTML = (shown.length ? shown.map(t => taskItem(aid, t)).join("") : `<div class="empty">No tasks match.</div>`)
-    + (filtered.length > lim ? `<div class="tasks-more" id="more-${aid}">Show ${Math.min(25, filtered.length-lim)} more of ${filtered.length}…</div>` : ``);
-  shown.forEach(t => wireTask(aid, pid, t, all));
-  const more = $("more-"+aid); if (more) more.onclick = () => { TASKLIMIT[aid]=lim+25; renderTasks(aid, pid, all); };
-  $("flt-"+aid).oninput = () => { TASKLIMIT[aid]=25; renderTasks(aid, pid, all); };
+  const draw = () => {
+    const flt = ($("flt-"+aid).value||"").toLowerCase();
+    const filtered = all.filter(t => !flt || t.task_id.toLowerCase().includes(flt) || (t.spec||"").toLowerCase().includes(flt) || (t.plain||"").toLowerCase().includes(flt));
+    const cnt = $("tcount-"+aid); if (cnt) cnt.textContent = `${filtered.length} task${filtered.length===1?"":"s"}`;
+    // The whole (filtered) list renders into a scroll window — no "load more".
+    // One delegated click handler (below) keeps this cheap even at 600 tasks.
+    box.innerHTML = filtered.length ? filtered.map(t => taskItem(aid, t)).join("") : `<div class="empty">No tasks match.</div>`;
+  };
+  draw();
+  $("flt-"+aid).oninput = draw;
+
+  // Delegated: one listener on the scroll box, not one per task. Reads the button's
+  // data-act / data-tid and the sibling note input, then writes progress.
+  box.onclick = async (e) => {
+    const btn = e.target.closest("button[data-act]"); if (!btn) return;
+    const tid = btn.dataset.tid, act = btn.dataset.act;
+    const noteEl = box.querySelector(`input[data-note="${CSS.escape(tid)}"]`);
+    const note = (noteEl && noteEl.value || "").trim();
+    btn.disabled = true;
+    const o = all.find(x => x.task_id === tid);
+    if (act === "untick"){
+      const { error } = await sb.from("progress")
+        .update({ status:"not_started", tutor_note: note||null, updated_at:new Date().toISOString() })
+        .eq("assignment_id", aid).eq("task_id", tid);
+      if (error){ flash(error.message, true); btn.disabled=false; return; }
+      if (o){ o.st="not_started"; o.note=note||null; }
+      flash("Unticked — it re-enters the plan at Monday's re-pace"); draw();
+    } else if (act === "tick"){
+      const { error } = await sb.from("progress")
+        .upsert({ assignment_id: aid, plan_id: pid, task_id: tid, status:"done", tutor_note: note||null, updated_at:new Date().toISOString() },
+                { onConflict: "assignment_id,task_id" });
+      if (error){ flash(error.message, true); btn.disabled=false; return; }
+      if (o){ o.st="done"; o.note=note||null; }
+      flash("Ticked"); draw();
+    }
+  };
 }
 
 function taskItem(aid, t){
   const kindBadge = `<span class="badge none">${esc(t.kind)}</span>`;
+  const tid = esc(t.task_id);
   let action, st;
   if (t.st === "done"){
     st = `done ✓`;
-    action = `<input class="note" id="tn-${aid}-${cssid(t.task_id)}" placeholder="reason (optional)"><button class="no" id="tu-${aid}-${cssid(t.task_id)}">Untick</button>`;
+    action = `<input class="note" data-note="${tid}" placeholder="reason (optional)"><button class="no" data-act="untick" data-tid="${tid}">Untick</button>`;
   } else if (t.st === "verified"){
     st = `verified ✓`;
     action = `<span class="disabled-tag">verified — remove via the submission (deny), not here</span>`;
@@ -336,39 +366,17 @@ function taskItem(aid, t){
     action = `<span class="disabled-tag">awaiting your review above</span>`;
   } else { // not_started or denied
     st = t.st === "denied" ? `denied` : `not done`;
-    action = `<input class="note" id="tn-${aid}-${cssid(t.task_id)}" placeholder="reason (optional)"><button class="ok" id="tt-${aid}-${cssid(t.task_id)}">Tick</button>`;
+    action = `<input class="note" data-note="${tid}" placeholder="reason (optional)"><button class="ok" data-act="tick" data-tid="${tid}">Tick</button>`;
   }
   const noteLine = t.note ? `<div class="st note">note: ${esc(t.note)}</div>` : ``;
   const wording = t.text || `<span class="spec-ref">(no wording found)</span>`;
   return `<div class="item">
     <div class="body">
-      <div class="tid">${esc(t.task_id)} ${kindBadge} <span class="spec-ref">${esc(t.spec)}</span></div>
+      <div class="tid">${tid} ${kindBadge} <span class="spec-ref">${esc(t.spec)}</span></div>
       <div class="ttext">${wording}</div>
       <div class="st">${st}</div>${noteLine}
     </div>
     <div class="acts">${action}</div></div>`;
-}
-
-function wireTask(aid, pid, t, all){
-  const setLocal = (st, note) => { const o = all.find(x=>x.task_id===t.task_id); if(o){o.st=st; o.note=note||null;} };
-  const un = $(`tu-${aid}-${cssid(t.task_id)}`);
-  if (un) un.onclick = async () => {
-    const note = ($(`tn-${aid}-${cssid(t.task_id)}`).value||"").trim();
-    const { error } = await sb.from("progress")
-      .update({ status:"not_started", tutor_note: note||null, updated_at:new Date().toISOString() })
-      .eq("assignment_id", aid).eq("task_id", t.task_id);
-    if (error){ flash(error.message, true); return; }
-    setLocal("not_started", note); flash("Unticked — it re-enters the plan at Monday's re-pace"); renderTasks(aid, pid, all);
-  };
-  const tk = $(`tt-${aid}-${cssid(t.task_id)}`);
-  if (tk) tk.onclick = async () => {
-    const note = ($(`tn-${aid}-${cssid(t.task_id)}`).value||"").trim();
-    const { error } = await sb.from("progress")
-      .upsert({ assignment_id: aid, plan_id: pid, task_id: t.task_id, status:"done", tutor_note: note||null, updated_at:new Date().toISOString() },
-              { onConflict: "assignment_id,task_id" });
-    if (error){ flash(error.message, true); return; }
-    setLocal("done", note); flash("Ticked"); renderTasks(aid, pid, all);
-  };
 }
 
 // ---- password reset (via Edge Function; no admin key in the browser) --------

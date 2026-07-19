@@ -303,6 +303,18 @@ li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;backg
     return (parts[1] || plan.slug).trim();
   };
 
+  const escHtml = (s) => (s==null?"":String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // The plan JSON carries each task's wording in `t`; flatten it so a notice can
+  // name the task the tutor asked about, not just its id.
+  function flattenTaskText(node, map){
+    if (Array.isArray(node)) { for (const n of node) flattenTaskText(n, map); }
+    else if (node && typeof node === "object"){
+      if (typeof node.id === "string" && typeof node.t === "string") map[node.id] = node.t;
+      for (const k in node) flattenTaskText(node[k], map);
+    }
+    return map;
+  }
+
   function supaStore(assignmentId, planId, dates, startTimes) {
     let s = {};
     return {
@@ -406,6 +418,23 @@ li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;backg
       }
     } catch (e) { pace = null; }
 
+    // --- tutor "revisit this" notices ---------------------------------------
+    // A task the tutor unticked with a reason is a progress row back at
+    // 'not_started' that still carries a tutor_note. Surface those to the student
+    // so an untick is not a silently vanishing tick (build-standards §7, sign-off
+    // 2c). They SELF-CLEAR: once the student re-does the task it leaves
+    // not_started and drops out of this query, so no read/unread flag is stored
+    // anywhere. A failure here must not cost the student their plan — on any error
+    // the panel simply does not paint.
+    let notices = [];
+    try {
+      const { data: n } = await sb.from("progress")
+        .select("task_id,tutor_note").eq("assignment_id", a.id)
+        .eq("status", "not_started").not("tutor_note", "is", null);
+      notices = n || [];
+    } catch (e) { notices = []; }
+    const noticeText = flattenTaskText(planData, {});
+
     window.__PLAN_DATA__ = planData;
     window.__PLAN_STORE__ = supaStore(a.id, a.plan_id, dates, startTimes);
     window.__PLAN_PACE__ = pace;
@@ -445,6 +474,35 @@ li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;backg
         who.innerHTML = `<span>${me.full_name}</span><button class="btn" id="signout">Sign out</button>`;
         foot.appendChild(who);
         document.getElementById("signout").onclick = async () => { await sb.auth.signOut(); location.href = "index.html"; };
+      }
+
+      // Notices: what the tutor has asked the student to revisit. Injected into
+      // the page chrome, above the plan — the renderer knows nothing about it, so
+      // the standalone builds (no database, no tutor) never show it.
+      const wrap = document.querySelector(".wrap");
+      const app  = document.getElementById("app");
+      if (wrap && app && notices.length && !document.querySelector(".notices")) {
+        if (!document.getElementById("notices-style")) {
+          const st = document.createElement("style"); st.id = "notices-style";
+          st.textContent =
+            ".notices{margin:16px 0;border:1px solid #ead9ae;background:#fbf1dc;border-left:4px solid #d98a00;border-radius:12px;padding:14px 16px}" +
+            ".notices-hd{font-family:inherit;font-weight:700;font-size:14px;color:#7a5200;margin-bottom:10px}" +
+            ".notices .notice{background:#fff;border:1px solid #ead9ae;border-radius:9px;padding:9px 11px;margin-bottom:7px}" +
+            ".notices .notice:last-child{margin-bottom:0}" +
+            ".notices .n-task{font-size:13.5px;color:#1c2230;line-height:1.45}" +
+            ".notices .n-task a{color:#4f46e5}.notices .n-task b,.notices .n-task strong{font-weight:600}" +
+            ".notices .n-reason{font-size:13px;color:#7a5200;margin-top:5px}";
+          document.head.appendChild(st);
+        }
+        const box = document.createElement("div");
+        box.className = "notices";
+        box.innerHTML =
+          `<div class="notices-hd">Yaseen asked you to go over ${notices.length} task${notices.length>1?"s":""} again — they're back on your list.</div>` +
+          notices.map(nt =>
+            `<div class="notice"><div class="n-task">${noticeText[nt.task_id] || escHtml(nt.task_id)}</div>` +
+            (nt.tutor_note ? `<div class="n-reason">“${escHtml(nt.tutor_note)}”</div>` : ``) +
+            `</div>`).join("");
+        wrap.insertBefore(box, app);
       }
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", paintChrome, { once: true });
