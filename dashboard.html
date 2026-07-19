@@ -39,12 +39,18 @@ h1{font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:700;letter-
 a.signout{font-size:13px;color:var(--muted);cursor:pointer;text-decoration:none;font-weight:600}
 a.signout:hover{color:var(--red-ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);border-top:3px solid var(--teal);overflow:hidden}
-.thead,.trow{display:grid;grid-template-columns:1.6fr 1.3fr .9fr .7fr .6fr .8fr;gap:10px;align-items:center;padding:11px 16px}
-.thead{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600}
+.student{border-bottom:8px solid var(--bg)}
+.student:last-child{border-bottom:none}
+.student-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;background:var(--teal-soft);flex-wrap:wrap}
+.student-hd .nm{font-weight:700;font-size:15px}
+.student-hd .nm small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.hd-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.subj-head,.trow{display:grid;grid-template-columns:1.6fr .9fr .7fr .6fr .9fr;gap:10px;align-items:center;padding:10px 16px}
+.subj-head{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600}
 .trow{border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
 .trow:last-child{border-bottom:none}
 .trow:hover{background:#fbfcfe}
-.trow.open{background:var(--teal-soft)}
+.trow.open{background:#eef7f5}
 .nm{font-weight:600}
 .nm small{display:block;color:var(--muted);font-weight:400;font-size:12px}
 .rate{font-family:"IBM Plex Mono",monospace;font-weight:600}
@@ -83,10 +89,11 @@ input.filter{font-family:inherit;font-size:13px;padding:8px 11px;border:1px soli
 .loading{padding:40px;text-align:center;color:var(--muted)}
 .tasks-more{font-size:12px;color:var(--teal-ink);cursor:pointer;font-weight:600;padding:4px 2px}
 @media (max-width:720px){
-  .thead{display:none}
+  .subj-head{display:none}
   .trow{grid-template-columns:1fr auto;gap:4px 10px}
-  .trow>.plan,.trow>.dl{grid-column:1;color:var(--muted);font-size:12px}
+  .trow>.dl{grid-column:1;color:var(--muted);font-size:12px}
   .acts{max-width:none}
+  .student-hd{align-items:flex-start}
 }
 :focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:4px}
 </style>
@@ -140,36 +147,64 @@ $("signout").onclick = async () => { await sb.auth.signOut(); location.href = "i
 async function loadCohort(){
   const { data, error } = await sb.from("cohort_pace").select("*");
   if (error){ $("root").innerHTML = `<div class="loading card">Couldn't load the cohort: ${esc(error.message)}</div>`; return; }
-  // furthest behind first; unpaced (null rate) sink to the bottom.
-  data.sort((a,b) => {
-    const ra=a.tasks_per_week, rb=b.tasks_per_week;
-    if (ra==null && rb==null) return (a.full_name||"").localeCompare(b.full_name||"");
-    if (ra==null) return 1; if (rb==null) return -1;
-    return rb - ra;
-  });
   if (!data.length){ $("root").innerHTML = `<div class="loading card">No students assigned yet.</div>`; return; }
 
-  const rows = data.map(r => {
-    const rate = r.tasks_per_week==null
+  // Group by student, so a 3-subject student is ONE block, not three loose rows.
+  // Triage is preserved: subjects sort worst-first within a student, and students
+  // sort by their WORST subject — so whoever needs attention most is still on top.
+  const rateOf = r => (r.tasks_per_week == null ? -1 : Number(r.tasks_per_week)); // unpaced = -1, sinks
+  const byStudent = new Map();
+  for (const r of data){
+    if (!byStudent.has(r.user_id)) byStudent.set(r.user_id, { user_id:r.user_id, name:r.full_name, email:r.email, rows:[] });
+    byStudent.get(r.user_id).rows.push(r);
+  }
+  const subjSort = (a,b) => {
+    const ra=a.tasks_per_week, rb=b.tasks_per_week;
+    if (ra==null && rb==null) return (a.plan_slug||"").localeCompare(b.plan_slug||"");
+    if (ra==null) return 1; if (rb==null) return -1; return rb - ra;
+  };
+  const students = [...byStudent.values()];
+  students.forEach(s => { s.rows.sort(subjSort); s.worst = Math.max(...s.rows.map(rateOf)); });
+  students.sort((x,y) => {
+    if (x.worst < 0 && y.worst < 0) return (x.name||"").localeCompare(y.name||"");
+    if (x.worst < 0) return 1; if (y.worst < 0) return -1;
+    return y.worst - x.worst;
+  });
+
+  const blocks = students.map(s => {
+    const worstBadge = s.worst < 0
       ? `<span class="badge none">not yet paced</span>`
-      : `<span class="rate">${r.tasks_per_week}</span><span class="c">/wk</span>`;
-    const flag = r.floor_breached ? `<span class="badge warn" title="${esc(r.message||'behind the late-joiner floor')}">⚠ floor</span>` : ``;
-    return `<div class="trow" data-a="${r.assignment_id}" data-p="${r.plan_slug}" data-u="${r.user_id}" data-nm="${esc(r.full_name||r.email)}">
-      <div class="nm">${esc(r.full_name||"—")}<small>${esc(r.email||"")}</small></div>
-      <div class="plan">${esc(planLabel(r.plan_slug))}</div>
-      <div class="dl">${fdate(r.deadline)}</div>
-      <div>${r.remaining==null?"—":r.remaining}</div>
-      <div>${r.weeks_left==null?"—":r.weeks_left}</div>
-      <div>${rate} ${flag}</div>
-    </div>
-    <div class="panel hidden" id="panel-${r.assignment_id}"><div class="panel-in"></div></div>`;
+      : `<span class="rate">${s.worst}</span><span class="c">/wk on the subject they're furthest behind on</span>`;
+    const subjectRows = s.rows.map(r => {
+      const rate = r.tasks_per_week==null
+        ? `<span class="badge none">not yet paced</span>`
+        : `<span class="rate">${r.tasks_per_week}</span><span class="c">/wk</span>`;
+      const flag = r.floor_breached ? `<span class="badge warn" title="${esc(r.message||'behind the late-joiner floor')}">⚠ floor</span>` : ``;
+      return `<div class="trow" data-a="${r.assignment_id}" data-p="${r.plan_id}">
+        <div class="plan">${esc(planLabel(r.plan_slug))}</div>
+        <div class="dl">${fdate(r.deadline)}</div>
+        <div>${r.remaining==null?"—":r.remaining}</div>
+        <div>${r.weeks_left==null?"—":r.weeks_left}</div>
+        <div>${rate} ${flag}</div>
+      </div>
+      <div class="panel hidden" id="panel-${r.assignment_id}"><div class="panel-in"></div></div>`;
+    }).join("");
+    return `<div class="student">
+      <div class="student-hd">
+        <div class="nm">${esc(s.name||"—")}<small>${esc(s.email||"")}</small></div>
+        <div class="hd-right">${worstBadge}
+          <button class="ghost" id="rst-${s.user_id}">Reset password</button>
+          <span id="rstout-${s.user_id}"></span></div>
+      </div>
+      <div class="subj-head"><div>Plan</div><div>Deadline</div><div>Left</div><div>Wks</div><div>Tasks/wk</div></div>
+      ${subjectRows}
+    </div>`;
   }).join("");
 
-  $("root").innerHTML = `<div class="card">
-    <div class="thead"><div>Student</div><div>Plan</div><div>Deadline</div><div>Left</div><div>Wks</div><div>Tasks/wk</div></div>
-    ${rows}</div>`;
+  $("root").innerHTML = `<div class="card">${blocks}</div>`;
 
   document.querySelectorAll(".trow").forEach(row => row.onclick = () => toggle(row));
+  students.forEach(s => { const b = $("rst-"+s.user_id); if (b) b.onclick = () => resetPassword(s.user_id, s.name); });
 }
 
 function toggle(row){
@@ -177,13 +212,13 @@ function toggle(row){
   const now = panel.classList.contains("hidden");
   panel.classList.toggle("hidden");
   row.classList.toggle("open", now);
-  if (now && !panel.dataset.loaded){ panel.dataset.loaded = "1"; loadPanel(aid, row.dataset.p, row.dataset.u, row.dataset.nm); }
+  if (now && !panel.dataset.loaded){ panel.dataset.loaded = "1"; loadPanel(aid, row.dataset.p); }
 }
 
-// ---- per-student panel: reset · submissions · tasks ------------------------
-async function loadPanel(aid, pid, uid, name){
+// ---- per-subject panel: submissions · tasks (reset lives in the student header) --
+async function loadPanel(aid, pid){
   const el = $("panel-"+aid).querySelector(".panel-in");
-  el.innerHTML = `<div class="empty">Loading ${esc(name)}…</div>`;
+  el.innerHTML = `<div class="empty">Loading…</div>`;
 
   const [subs, prog, tasks] = await Promise.all([
     sb.from("submissions").select("task_id,status,file_path,tutor_note").eq("assignment_id", aid),
@@ -198,11 +233,6 @@ async function loadPanel(aid, pid, uid, name){
   const pending = (subs.data||[]).filter(s => s.status === "submitted");
 
   el.innerHTML = `
-    <div class="sec">
-      <h3>Account <span class="c">— ${esc(name)}</span></h3>
-      <button class="ghost" id="rst-${aid}">Reset password</button>
-      <span id="rstout-${aid}"></span>
-    </div>
     <div class="sec" id="subs-${aid}">
       <h3>Submissions to review <span class="c">— ${pending.length} pending</span></h3>
       ${pending.length ? pending.map(s => subItem(aid, s, specOf[s.task_id])).join("") : `<div class="empty">Nothing waiting.</div>`}
@@ -212,9 +242,6 @@ async function loadPanel(aid, pid, uid, name){
       <input class="filter" id="flt-${aid}" placeholder="Filter by task id or spec…">
       <div id="tasks-${aid}"></div>
     </div>`;
-
-  // reset password
-  $("rst-"+aid).onclick = () => resetPassword(aid, uid, name);
 
   // submission accept / deny
   pending.forEach(s => wireSub(aid, s.task_id));
@@ -316,8 +343,8 @@ function wireTask(aid, pid, t, all){
 }
 
 // ---- password reset (via Edge Function; no admin key in the browser) --------
-async function resetPassword(aid, uid, name){
-  const btn = $("rst-"+aid), out = $("rstout-"+aid);
+async function resetPassword(uid, name){
+  const btn = $("rst-"+uid), out = $("rstout-"+uid);
   if (!confirm(`Reset ${name}'s password? They'll need the new one to sign in, and will be asked to set their own on next login.`)) return;
   btn.disabled = true; out.textContent = " working…";
   try {
