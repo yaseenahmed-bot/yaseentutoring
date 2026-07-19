@@ -368,7 +368,10 @@ function taskItem(aid, t){
     st = t.st === "denied" ? `denied` : `not done`;
     action = `<input class="note" data-note="${tid}" placeholder="reason (optional)"><button class="ok" data-act="tick" data-tid="${tid}">Tick</button>`;
   }
-  const noteLine = t.note ? `<div class="st note">note: ${esc(t.note)}</div>` : ``;
+  // A note is a "please revisit" — only meaningful while the task is still
+  // outstanding. Once it's done/verified the ask is resolved, so don't show a
+  // stale note under a ticked task (the student's re-tick also clears it in the DB).
+  const noteLine = (t.note && (t.st === "not_started" || t.st === "denied")) ? `<div class="st note">note: ${esc(t.note)}</div>` : ``;
   const wording = t.text || `<span class="spec-ref">(no wording found)</span>`;
   return `<div class="item">
     <div class="body">

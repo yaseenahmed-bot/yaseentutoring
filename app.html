@@ -342,9 +342,13 @@ li.task .soon{display:block;font-size:11.5px;font-weight:600;color:#8a5a00;backg
         // There is NO DELETE policy on progress for anyone (rls.sql), so an
         // untick is an UPDATE back to 'not_started' — never a delete. The row
         // count only grows. updated_at is stamped by the progress_touch trigger.
+        // tutor_note is CLEARED on any student action: a tutor's "revisit this"
+        // note is an OPEN ASK, and the student re-doing the task resolves it —
+        // otherwise the note lingers on a done row and the dashboard shows a stale
+        // "you haven't done it yet" under a ticked task.
         const { error } = await sb.from("progress")
           .upsert({ assignment_id: assignmentId, plan_id: planId, task_id: id,
-                    status: on ? "done" : "not_started" },
+                    status: on ? "done" : "not_started", tutor_note: null },
                   { onConflict: "assignment_id,task_id" });
         if (error) throw error;
         if (on) s[id] = 1; else delete s[id];
