@@ -49,6 +49,7 @@ button.go:disabled{opacity:.55;cursor:default}
   <h1 id="hd">Sign in</h1>
   <p class="sub" id="sb">Your revision plan, your ticks, on any device.</p>
 
+  <div id="loginForm">
   <div id="nameRow" style="display:none">
     <label class="f" for="name">Your full name</label>
     <input id="name" type="text" autocomplete="name" placeholder="As Yaseen knows you">
@@ -71,6 +72,17 @@ button.go:disabled{opacity:.55;cursor:default}
 
   <p class="alt" id="alt">New here? <a id="swap">Create an account</a></p>
   <p class="alt" style="margin-top:10px;font-size:12px">Forgotten your password? Ask Yaseen — he'll reset it for you.</p>
+  </div>
+
+  <div id="force" style="display:none">
+    <p class="sub" style="margin-top:4px">You're signing in with a temporary password from Yaseen. Choose your own to continue.</p>
+    <label class="f" for="np1">New password</label>
+    <input id="np1" type="password" autocomplete="new-password" placeholder="at least 8 characters">
+    <label class="f" for="np2">Confirm new password</label>
+    <input id="np2" type="password" autocomplete="new-password" placeholder="type it again">
+    <button class="go" id="setpw">Set password &amp; continue</button>
+    <div class="msg" id="fmsg"></div>
+  </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -81,8 +93,29 @@ let mode = "in";
 const $ = id => document.getElementById(id);
 const say = (t, cls) => { const m = $("msg"); m.textContent = t; m.className = "msg " + cls; };
 
-// Already signed in? Go straight through.
-sb.auth.getSession().then(({ data: { session } }) => { if (session) location.href = "app.html"; });
+// After any successful auth, decide where the user goes — and stop first if
+// they are on a temporary password Yaseen issued (user_metadata.must_reset).
+// The renderer is never forked: the tutor gets a SEPARATE page (dashboard.html),
+// the student gets app.html. app.html itself handles the not-yet-approved case.
+async function routeAfterAuth(session){
+  if (session?.user?.user_metadata?.must_reset){ showForceChange(); return; }
+  // role decides the destination. An unapproved student has no users row yet
+  // (the profile row IS the approval) — .single() errors, and they go to app.html,
+  // which shows the "waiting for Yaseen" screen.
+  const { data: prof } = await sb.from("users").select("role").eq("id", session.user.id).single();
+  location.href = (prof && prof.role === "tutor") ? "dashboard.html" : "app.html";
+}
+
+function showForceChange(){
+  $("loginForm").style.display = "none";
+  $("force").style.display = "block";
+  $("hd").textContent = "Set your password";
+  $("sb").style.display = "none";
+  $("np1").focus();
+}
+
+// Already signed in? Route straight through (respecting must_reset).
+sb.auth.getSession().then(({ data: { session } }) => { if (session) routeAfterAuth(session); });
 
 // Delegated: the link below gets rewritten on every swap, so binding directly
 // to it would work exactly once.
@@ -121,9 +154,9 @@ $("go").onclick = async () => {
         + "You don't need to do anything else.", "ok");
       $("go").textContent = "Done";
     } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
       if (error) throw error;
-      location.href = "app.html";
+      await routeAfterAuth(data.session);
     }
   } catch (e) {
     say(/Invalid login/i.test(e.message)
@@ -133,7 +166,24 @@ $("go").onclick = async () => {
   }
 };
 
-["email", "pw", "name"].forEach(id =>
+// Force-change: the student on a temporary password sets their own. updateUser
+// changes the password AND clears must_reset in one call — the student can write
+// their own auth metadata, so no server round-trip and no new database surface.
+$("setpw").onclick = async () => {
+  const a = $("np1").value, b = $("np2").value;
+  const fsay = (t, cls) => { const m = $("fmsg"); m.textContent = t; m.className = "msg " + cls; };
+  if (a.length < 8) return fsay("Use at least 8 characters.", "err");
+  if (a !== b)      return fsay("Those two don't match.", "err");
+  $("setpw").disabled = true;
+  const { error } = await sb.auth.updateUser({ password: a, data: { must_reset: false } });
+  if (error){ fsay(error.message, "err"); $("setpw").disabled = false; return; }
+  const { data: { session } } = await sb.auth.getSession();
+  await routeAfterAuth(session);   // must_reset now false -> student page
+};
+["np1","np2"].forEach(id =>
+  $(id) && $(id).addEventListener("keydown", e => { if (e.key === "Enter") $("setpw").click(); }));
+
+[["email", "pw", "name"]].flat().forEach(id =>
   $(id).addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); }));
 </script>
 </body>

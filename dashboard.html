@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tutor dashboard — Yaseen Tutoring</title>
+<!--
+  dashboard.html — the TUTOR page. STANDALONE (build-standards §9 / Week-5 sign-off 3):
+  it never imports renderer.html, platform.js, build-app.js or bundle.js, and shares
+  only config.js. The student renderer and this page evolve independently.
+
+  It talks to Supabase with the SAME anon key every page ships (config.js). It holds
+  NO service_role key — the one action that needs admin rights (password reset) is a
+  fetch to an Edge Function that holds the key as a server secret. check-page.js's
+  DASHBOARD layer fails the build if a service_role string ever appears here.
+
+  Everything it can do, RLS already allows a tutor to do (rls.sql): read cohort_pace,
+  read/accept/deny submissions, tick/untick progress within not_started/done. The page
+  cannot grant itself anything the database does not already permit.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#1c2230; --muted:#5b6577; --line:#e6e9ef;
+  --teal:#0f9d8f; --teal-ink:#0a6f66; --teal-soft:#e5f5f2;
+  --indigo:#4f46e5; --indigo-soft:#ecebfb; --amber:#d98a00; --amber-soft:#fbf1dc;
+  --red:#d14343; --red-soft:#fdecec; --red-ink:#a32222;
+  --shadow:0 1px 2px rgba(20,30,50,.05),0 8px 24px rgba(20,30,50,.05); --radius:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5;
+     -webkit-font-smoothing:antialiased;padding:24px}
+.wrap{max-width:1000px;margin:0 auto}
+header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-ink);font-weight:600}
+h1{font-family:"Space Grotesk",sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em;margin:2px 0 0}
+a.signout{font-size:13px;color:var(--muted);cursor:pointer;text-decoration:none;font-weight:600}
+a.signout:hover{color:var(--red-ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);border-top:3px solid var(--teal);overflow:hidden}
+.thead,.trow{display:grid;grid-template-columns:1.6fr 1.3fr .9fr .7fr .6fr .8fr;gap:10px;align-items:center;padding:11px 16px}
+.thead{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600}
+.trow{border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.trow:last-child{border-bottom:none}
+.trow:hover{background:#fbfcfe}
+.trow.open{background:var(--teal-soft)}
+.nm{font-weight:600}
+.nm small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.rate{font-family:"IBM Plex Mono",monospace;font-weight:600}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--indigo-soft);color:var(--indigo)}
+.badge.warn{background:var(--amber-soft);color:var(--amber)}
+.badge.none{background:var(--line);color:var(--muted)}
+.panel{padding:0 16px;background:#fafbfd;border-bottom:1px solid var(--line)}
+.panel.hidden{display:none}
+.panel-in{padding:16px 0}
+.sec{margin-bottom:18px}
+.sec h3{font-family:"Space Grotesk",sans-serif;font-size:14px;margin:0 0 8px;letter-spacing:-.01em}
+.sec h3 .c{color:var(--muted);font-weight:500}
+.item{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:7px;font-size:13px}
+.item .body{flex:1;min-width:0}
+.item .tid{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--teal-ink);font-weight:600}
+.item .spec{color:var(--ink);margin-top:1px}
+.item .st{font-size:11px;color:var(--muted);margin-top:2px}
+.item .st.note{color:var(--amber);font-style:italic}
+.acts{display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:270px}
+button{font-family:inherit;font-size:12px;font-weight:600;border-radius:8px;padding:6px 11px;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink)}
+button:hover{border-color:var(--muted)}
+button.ok{background:var(--teal);color:#fff;border-color:var(--teal)}
+button.ok:hover{background:var(--teal-ink)}
+button.no{background:#fff;color:var(--red-ink);border-color:#f0c4c4}
+button.no:hover{background:var(--red-soft)}
+button.ghost{background:#fff;color:var(--muted)}
+button:disabled{opacity:.5;cursor:default}
+input.note{font-family:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;width:150px;background:#fbfcfe}
+input.filter{font-family:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;width:100%;background:#fbfcfe;margin-bottom:9px}
+.disabled-tag{font-size:11px;color:var(--muted)}
+.pw{font-family:"IBM Plex Mono",monospace;font-size:14px;background:var(--amber-soft);border:1px solid #ead9ae;color:#7a5200;padding:8px 11px;border-radius:9px;display:inline-block;margin-top:6px;user-select:all}
+.empty{color:var(--muted);font-size:13px;padding:6px 2px}
+.flash{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:9px 15px;border-radius:10px;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;z-index:9;pointer-events:none}
+.flash.on{opacity:1}
+.flash.bad{background:var(--red-ink)}
+.loading{padding:40px;text-align:center;color:var(--muted)}
+.tasks-more{font-size:12px;color:var(--teal-ink);cursor:pointer;font-weight:600;padding:4px 2px}
+@media (max-width:720px){
+  .thead{display:none}
+  .trow{grid-template-columns:1fr auto;gap:4px 10px}
+  .trow>.plan,.trow>.dl{grid-column:1;color:var(--muted);font-size:12px}
+  .acts{max-width:none}
+}
+:focus-visible{outline:2px solid var(--indigo);outline-offset:2px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="kicker">Yaseen Tutoring</div>
+      <h1>Tutor dashboard</h1>
+    </div>
+    <a class="signout" id="signout">Sign out</a>
+  </header>
+  <div id="root"><div class="loading card">Loading your cohort…</div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+const sb = window.supabase.createClient(window.__SUPA__.url, window.__SUPA__.anonKey);
+const RESET_URL = window.__SUPA__.url + "/functions/v1/reset-password";
+const $ = id => document.getElementById(id);
+let ME = null;                 // tutor's own auth id (reviewed_by)
+let SESSION = null;
+const open = {};               // assignment_id -> expanded?
+const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function flash(msg, bad){ const f=$("flash"); f.textContent=msg; f.className="flash on"+(bad?" bad":""); setTimeout(()=>f.className="flash",2200); }
+
+// slug -> human label, e.g. aqa-bio-as -> "AQA Biology · AS"
+function planLabel(slug){
+  const B={aqa:"AQA",ocr:"OCR",edexcel:"Edexcel"}, S={bio:"Biology",chem:"Chemistry",maths:"Maths"}, L={as:"AS",al:"A-level"};
+  const p=(slug||"").split("-"); return `${B[p[0]]||p[0]} ${S[p[1]]||p[1]} · ${L[p[2]]||p[2]}`;
+}
+const fdate = d => d ? new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"2-digit"}) : "—";
+
+// ---- guard: must be a signed-in TUTOR --------------------------------------
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session){ location.href = "index.html"; return; }
+  SESSION = session; ME = session.user.id;
+  const { data: prof, error } = await sb.from("users").select("role").eq("id", ME).single();
+  if (error || !prof || prof.role !== "tutor"){ location.href = "app.html"; return; }  // students never see this page
+  loadCohort();
+})();
+
+$("signout").onclick = async () => { await sb.auth.signOut(); location.href = "index.html"; };
+
+// ---- cohort overview -------------------------------------------------------
+async function loadCohort(){
+  const { data, error } = await sb.from("cohort_pace").select("*");
+  if (error){ $("root").innerHTML = `<div class="loading card">Couldn't load the cohort: ${esc(error.message)}</div>`; return; }
+  // furthest behind first; unpaced (null rate) sink to the bottom.
+  data.sort((a,b) => {
+    const ra=a.tasks_per_week, rb=b.tasks_per_week;
+    if (ra==null && rb==null) return (a.full_name||"").localeCompare(b.full_name||"");
+    if (ra==null) return 1; if (rb==null) return -1;
+    return rb - ra;
+  });
+  if (!data.length){ $("root").innerHTML = `<div class="loading card">No students assigned yet.</div>`; return; }
+
+  const rows = data.map(r => {
+    const rate = r.tasks_per_week==null
+      ? `<span class="badge none">not yet paced</span>`
+      : `<span class="rate">${r.tasks_per_week}</span><span class="c">/wk</span>`;
+    const flag = r.floor_breached ? `<span class="badge warn" title="${esc(r.message||'behind the late-joiner floor')}">⚠ floor</span>` : ``;
+    return `<div class="trow" data-a="${r.assignment_id}" data-p="${r.plan_slug}" data-u="${r.user_id}" data-nm="${esc(r.full_name||r.email)}">
+      <div class="nm">${esc(r.full_name||"—")}<small>${esc(r.email||"")}</small></div>
+      <div class="plan">${esc(planLabel(r.plan_slug))}</div>
+      <div class="dl">${fdate(r.deadline)}</div>
+      <div>${r.remaining==null?"—":r.remaining}</div>
+      <div>${r.weeks_left==null?"—":r.weeks_left}</div>
+      <div>${rate} ${flag}</div>
+    </div>
+    <div class="panel hidden" id="panel-${r.assignment_id}"><div class="panel-in"></div></div>`;
+  }).join("");
+
+  $("root").innerHTML = `<div class="card">
+    <div class="thead"><div>Student</div><div>Plan</div><div>Deadline</div><div>Left</div><div>Wks</div><div>Tasks/wk</div></div>
+    ${rows}</div>`;
+
+  document.querySelectorAll(".trow").forEach(row => row.onclick = () => toggle(row));
+}
+
+function toggle(row){
+  const aid = row.dataset.a, panel = $("panel-"+aid);
+  const now = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden");
+  row.classList.toggle("open", now);
+  if (now && !panel.dataset.loaded){ panel.dataset.loaded = "1"; loadPanel(aid, row.dataset.p, row.dataset.u, row.dataset.nm); }
+}
+
+// ---- per-student panel: reset · submissions · tasks ------------------------
+async function loadPanel(aid, pid, uid, name){
+  const el = $("panel-"+aid).querySelector(".panel-in");
+  el.innerHTML = `<div class="empty">Loading ${esc(name)}…</div>`;
+
+  const [subs, prog, tasks] = await Promise.all([
+    sb.from("submissions").select("task_id,status,file_path,tutor_note").eq("assignment_id", aid),
+    sb.from("progress").select("task_id,status,tutor_note").eq("assignment_id", aid),
+    sb.from("plan_tasks").select("task_id,kind,phase,year,spec,requires_upload,ord").eq("plan_id", pid).order("ord")
+  ]);
+  if (subs.error || prog.error || tasks.error){
+    el.innerHTML = `<div class="empty">Couldn't load: ${esc((subs.error||prog.error||tasks.error).message)}</div>`; return;
+  }
+  const statusOf = {}; (prog.data||[]).forEach(p => statusOf[p.task_id] = p);
+  const specOf = {}; (tasks.data||[]).forEach(t => specOf[t.task_id] = t);
+  const pending = (subs.data||[]).filter(s => s.status === "submitted");
+
+  el.innerHTML = `
+    <div class="sec">
+      <h3>Account <span class="c">— ${esc(name)}</span></h3>
+      <button class="ghost" id="rst-${aid}">Reset password</button>
+      <span id="rstout-${aid}"></span>
+    </div>
+    <div class="sec" id="subs-${aid}">
+      <h3>Submissions to review <span class="c">— ${pending.length} pending</span></h3>
+      ${pending.length ? pending.map(s => subItem(aid, s, specOf[s.task_id])).join("") : `<div class="empty">Nothing waiting.</div>`}
+    </div>
+    <div class="sec">
+      <h3>Tasks <span class="c">— tick / untick</span></h3>
+      <input class="filter" id="flt-${aid}" placeholder="Filter by task id or spec…">
+      <div id="tasks-${aid}"></div>
+    </div>`;
+
+  // reset password
+  $("rst-"+aid).onclick = () => resetPassword(aid, uid, name);
+
+  // submission accept / deny
+  pending.forEach(s => wireSub(aid, s.task_id));
+
+  // task list (render a slice, filterable; keeps 600-task plans responsive)
+  const all = (tasks.data||[]).map(t => ({ ...t, st: (statusOf[t.task_id]||{}).status || "not_started", note:(statusOf[t.task_id]||{}).tutor_note }));
+  renderTasks(aid, pid, all);
+}
+
+function subItem(aid, s, t){
+  return `<div class="item" data-sub="${esc(s.task_id)}">
+    <div class="body">
+      <div class="tid">${esc(s.task_id)}</div>
+      <div class="spec">${esc(t? t.spec : "(task not in plan)")}</div>
+      ${s.file_path ? `<div class="st">📎 submitted a file</div>` : `<div class="st">sent in for review</div>`}
+    </div>
+    <div class="acts">
+      <input class="note" id="sn-${aid}-${cssid(s.task_id)}" placeholder="note (optional)">
+      <button class="ok"  id="sa-${aid}-${cssid(s.task_id)}">Accept</button>
+      <button class="no"  id="sd-${aid}-${cssid(s.task_id)}">Deny</button>
+    </div></div>`;
+}
+const cssid = s => String(s).replace(/[^a-zA-Z0-9_-]/g,"_");
+
+function wireSub(aid, tid){
+  const review = async (status) => {
+    const note = $(`sn-${aid}-${cssid(tid)}`).value.trim();
+    const { error } = await sb.from("submissions")
+      .update({ status, reviewed_at: new Date().toISOString(), reviewed_by: ME, tutor_note: note || null })
+      .eq("assignment_id", aid).eq("task_id", tid).eq("status","submitted");
+    if (error){ flash(error.message, true); return; }
+    // the submissions_sync_progress trigger has moved progress to verified/denied.
+    $(`sa-${aid}-${cssid(tid)}`).disabled = true; $(`sd-${aid}-${cssid(tid)}`).disabled = true;
+    const item = document.querySelector(`#subs-${aid} .item[data-sub="${cssTidSel(tid)}"]`);
+    if (item) item.querySelector(".acts").innerHTML = `<span class="disabled-tag">${status==="verified"?"✓ accepted":"✕ denied"}</span>`;
+    flash(status==="verified" ? "Accepted" : "Denied — the student sees why");
+  };
+  $(`sa-${aid}-${cssid(tid)}`).onclick = () => review("verified");
+  $(`sd-${aid}-${cssid(tid)}`).onclick = () => review("denied");
+}
+const cssTidSel = s => String(s).replace(/(["\\])/g,"\\$1");
+
+let TASKLIMIT = {};
+function renderTasks(aid, pid, all){
+  const flt = ($("flt-"+aid).value||"").toLowerCase();
+  const filtered = all.filter(t => !flt || t.task_id.toLowerCase().includes(flt) || (t.spec||"").toLowerCase().includes(flt));
+  const lim = TASKLIMIT[aid] || 25;
+  const shown = filtered.slice(0, lim);
+  const box = $("tasks-"+aid);
+  box.innerHTML = (shown.length ? shown.map(t => taskItem(aid, t)).join("") : `<div class="empty">No tasks match.</div>`)
+    + (filtered.length > lim ? `<div class="tasks-more" id="more-${aid}">Show ${Math.min(25, filtered.length-lim)} more of ${filtered.length}…</div>` : ``);
+  shown.forEach(t => wireTask(aid, pid, t, all));
+  const more = $("more-"+aid); if (more) more.onclick = () => { TASKLIMIT[aid]=lim+25; renderTasks(aid, pid, all); };
+  $("flt-"+aid).oninput = () => { TASKLIMIT[aid]=25; renderTasks(aid, pid, all); };
+}
+
+function taskItem(aid, t){
+  const kindBadge = `<span class="badge none">${esc(t.kind)}</span>`;
+  let action, st;
+  if (t.st === "done"){
+    st = `done ✓`;
+    action = `<input class="note" id="tn-${aid}-${cssid(t.task_id)}" placeholder="reason (optional)"><button class="no" id="tu-${aid}-${cssid(t.task_id)}">Untick</button>`;
+  } else if (t.st === "verified"){
+    st = `verified ✓`;
+    action = `<span class="disabled-tag">verified — remove via the submission (deny), not here</span>`;
+  } else if (t.st === "submitted"){
+    st = `submitted`;
+    action = `<span class="disabled-tag">awaiting your review above</span>`;
+  } else { // not_started or denied
+    st = t.st === "denied" ? `denied` : `not done`;
+    action = `<input class="note" id="tn-${aid}-${cssid(t.task_id)}" placeholder="reason (optional)"><button class="ok" id="tt-${aid}-${cssid(t.task_id)}">Tick</button>`;
+  }
+  const noteLine = t.note ? `<div class="st note">note: ${esc(t.note)}</div>` : ``;
+  return `<div class="item">
+    <div class="body"><div class="tid">${esc(t.task_id)} ${kindBadge}</div><div class="spec">${esc(t.spec)}</div><div class="st">${st}</div>${noteLine}</div>
+    <div class="acts">${action}</div></div>`;
+}
+
+function wireTask(aid, pid, t, all){
+  const setLocal = (st, note) => { const o = all.find(x=>x.task_id===t.task_id); if(o){o.st=st; o.note=note||null;} };
+  const un = $(`tu-${aid}-${cssid(t.task_id)}`);
+  if (un) un.onclick = async () => {
+    const note = ($(`tn-${aid}-${cssid(t.task_id)}`).value||"").trim();
+    const { error } = await sb.from("progress")
+      .update({ status:"not_started", tutor_note: note||null, updated_at:new Date().toISOString() })
+      .eq("assignment_id", aid).eq("task_id", t.task_id);
+    if (error){ flash(error.message, true); return; }
+    setLocal("not_started", note); flash("Unticked — it re-enters the plan at Monday's re-pace"); renderTasks(aid, pid, all);
+  };
+  const tk = $(`tt-${aid}-${cssid(t.task_id)}`);
+  if (tk) tk.onclick = async () => {
+    const note = ($(`tn-${aid}-${cssid(t.task_id)}`).value||"").trim();
+    const { error } = await sb.from("progress")
+      .upsert({ assignment_id: aid, plan_id: pid, task_id: t.task_id, status:"done", tutor_note: note||null, updated_at:new Date().toISOString() },
+              { onConflict: "assignment_id,task_id" });
+    if (error){ flash(error.message, true); return; }
+    setLocal("done", note); flash("Ticked"); renderTasks(aid, pid, all);
+  };
+}
+
+// ---- password reset (via Edge Function; no admin key in the browser) --------
+async function resetPassword(aid, uid, name){
+  const btn = $("rst-"+aid), out = $("rstout-"+aid);
+  if (!confirm(`Reset ${name}'s password? They'll need the new one to sign in, and will be asked to set their own on next login.`)) return;
+  btn.disabled = true; out.textContent = " working…";
+  try {
+    const res = await fetch(RESET_URL, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+SESSION.access_token, "Content-Type":"application/json" },
+      body: JSON.stringify({ user_id: uid })
+    });
+    const body = await res.json().catch(()=> ({}));
+    if (!res.ok) throw new Error(body.error || ("reset failed ("+res.status+")"));
+    out.innerHTML = ` <span class="pw">${esc(body.password)}</span> <span class="disabled-tag">— read this to ${esc(name)}; they set their own on next login</span>`;
+  } catch(e){ out.innerHTML = ` <span class="disabled-tag" style="color:var(--red-ink)">${esc(e.message)}</span>`; }
+  finally { btn.disabled = false; }
+}
+</script>
+</body>
+</html>
